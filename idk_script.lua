@@ -7,12 +7,19 @@ local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 
 -- ═══════════════════════════════════════
---  ANTI-KICK / ANTI-AFK
+--  ANTI-KICK / ANTI-AFK STATE
 -- ═══════════════════════════════════════
 local VirtualUser = game:GetService("VirtualUser")
+local antiKickEnabled = false
+local antiKickStartTime = nil
+local antiKickCount = 0
+
 Players.LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new())
+    if antiKickEnabled then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+        antiKickCount += 1
+    end
 end)
 
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
@@ -196,7 +203,7 @@ ContentArea.Parent = Frame
 -- ═══════════════════════════════════════
 --  PAGES + TAB BUTTONS  (manual y pos)
 -- ═══════════════════════════════════════
-local TABS = { "main", "auto farm", "event" }
+local TABS = { "main", "auto farm", "event", "misc" }
 local tabButtons = {}
 local tabPages   = {}
 
@@ -230,7 +237,7 @@ local function switchTab(name)
 end
 
 -- build tab buttons with explicit Y positions
-local tabYPositions = { 12, 52, 92 }
+local tabYPositions = { 12, 52, 92, 132 }
 for i, name in ipairs(TABS) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 84, 0, 32)
@@ -418,6 +425,251 @@ end
 makeCheckbox(MACHINES[1], 52)
 makeCheckbox(MACHINES[2], 94)
 makeCheckbox(MACHINES[3], 136)
+
+-- ═══════════════════════════════════════
+--  MISC PAGE
+-- ═══════════════════════════════════════
+local miscPage = tabPages["misc"]
+
+-- section label
+local MiscSectionLbl = Instance.new("TextLabel")
+MiscSectionLbl.Size = UDim2.new(1, -16, 0, 18)
+MiscSectionLbl.Position = UDim2.new(0, 10, 0, 8)
+MiscSectionLbl.BackgroundTransparency = 1
+MiscSectionLbl.Text = "anti-kick"
+MiscSectionLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+MiscSectionLbl.TextSize = 10
+MiscSectionLbl.Font = Enum.Font.Gotham
+MiscSectionLbl.TextXAlignment = Enum.TextXAlignment.Left
+MiscSectionLbl.Parent = miscPage
+
+-- status dot row
+local AKDotRow = Instance.new("Frame")
+AKDotRow.Size = UDim2.new(1, -16, 0, 18)
+AKDotRow.Position = UDim2.new(0, 10, 0, 28)
+AKDotRow.BackgroundTransparency = 1
+AKDotRow.Parent = miscPage
+
+local AKStatusDot = Instance.new("Frame")
+AKStatusDot.Size = UDim2.new(0, 7, 0, 7)
+AKStatusDot.Position = UDim2.new(0, 0, 0.5, -3)
+AKStatusDot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+AKStatusDot.BorderSizePixel = 0
+AKStatusDot.Parent = AKDotRow
+Instance.new("UICorner", AKStatusDot).CornerRadius = UDim.new(1, 0)
+
+local AKStatusLbl = Instance.new("TextLabel")
+AKStatusLbl.Size = UDim2.new(1, -14, 1, 0)
+AKStatusLbl.Position = UDim2.new(0, 14, 0, 0)
+AKStatusLbl.BackgroundTransparency = 1
+AKStatusLbl.Text = "disabled"
+AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+AKStatusLbl.TextSize = 10
+AKStatusLbl.Font = Enum.Font.Gotham
+AKStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
+AKStatusLbl.Parent = AKDotRow
+
+-- anti-kick toggle row
+local AKRow = Instance.new("Frame")
+AKRow.Size = UDim2.new(1, -16, 0, 36)
+AKRow.Position = UDim2.new(0, 8, 0, 52)
+AKRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+AKRow.BorderSizePixel = 0
+AKRow.Parent = miscPage
+Instance.new("UICorner", AKRow).CornerRadius = UDim.new(0, 5)
+
+local AKRS = Instance.new("UIStroke")
+AKRS.Color = Color3.fromRGB(36, 36, 36)
+AKRS.Thickness = 1
+AKRS.Parent = AKRow
+
+local AKBox = Instance.new("Frame")
+AKBox.Size = UDim2.new(0, 15, 0, 15)
+AKBox.Position = UDim2.new(0, 10, 0.5, -7)
+AKBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+AKBox.BorderSizePixel = 0
+AKBox.Parent = AKRow
+Instance.new("UICorner", AKBox).CornerRadius = UDim.new(0, 3)
+
+local AKBS = Instance.new("UIStroke")
+AKBS.Color = Color3.fromRGB(60, 60, 60)
+AKBS.Thickness = 1
+AKBS.Parent = AKBox
+
+local AKFill = Instance.new("Frame")
+AKFill.Size = UDim2.new(0, 7, 0, 7)
+AKFill.Position = UDim2.new(0.5, -3, 0.5, -3)
+AKFill.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
+AKFill.BorderSizePixel = 0
+AKFill.Visible = false
+AKFill.Parent = AKBox
+Instance.new("UICorner", AKFill).CornerRadius = UDim.new(0, 2)
+
+local AKLbl = Instance.new("TextLabel")
+AKLbl.Size = UDim2.new(1, -55, 1, 0)
+AKLbl.Position = UDim2.new(0, 32, 0, 0)
+AKLbl.BackgroundTransparency = 1
+AKLbl.Text = "Anti-Kick"
+AKLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+AKLbl.TextSize = 12
+AKLbl.Font = Enum.Font.Gotham
+AKLbl.TextXAlignment = Enum.TextXAlignment.Left
+AKLbl.Parent = AKRow
+
+local function setAntiKickActive(state)
+    antiKickEnabled = state
+    AKFill.Visible = state
+    AKBS.Color             = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
+    AKBox.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36)  or Color3.fromRGB(30, 30, 30)
+    AKLbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
+    AKRS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
+    AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
+
+    if state then
+        antiKickStartTime = tick()
+        AKStatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
+        AKStatusLbl.Text = "active"
+        AKStatusLbl.TextColor3 = Color3.fromRGB(138, 118, 200)
+    else
+        antiKickStartTime = nil
+        AKStatusDot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        AKStatusLbl.Text = "disabled"
+        AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+    end
+end
+
+local AKBtn = Instance.new("TextButton")
+AKBtn.Size = UDim2.new(1, 0, 1, 0)
+AKBtn.BackgroundTransparency = 1
+AKBtn.Text = ""
+AKBtn.Parent = AKRow
+
+AKBtn.MouseButton1Click:Connect(function()
+    setAntiKickActive(not antiKickEnabled)
+end)
+
+-- ── Uptime display ──
+local UptimeRow = Instance.new("Frame")
+UptimeRow.Size = UDim2.new(1, -16, 0, 44)
+UptimeRow.Position = UDim2.new(0, 8, 0, 98)
+UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+UptimeRow.BorderSizePixel = 0
+UptimeRow.Parent = miscPage
+Instance.new("UICorner", UptimeRow).CornerRadius = UDim.new(0, 5)
+
+local UptimeRS = Instance.new("UIStroke")
+UptimeRS.Color = Color3.fromRGB(36, 36, 36)
+UptimeRS.Thickness = 1
+UptimeRS.Parent = UptimeRow
+
+local UptimeIcon = Instance.new("TextLabel")
+UptimeIcon.Size = UDim2.new(0, 20, 0, 20)
+UptimeIcon.Position = UDim2.new(0, 10, 0.5, -10)
+UptimeIcon.BackgroundTransparency = 1
+UptimeIcon.Text = "⏱"
+UptimeIcon.TextSize = 14
+UptimeIcon.Font = Enum.Font.GothamBold
+UptimeIcon.Parent = UptimeRow
+
+local UptimeTitleLbl = Instance.new("TextLabel")
+UptimeTitleLbl.Size = UDim2.new(1, -40, 0, 16)
+UptimeTitleLbl.Position = UDim2.new(0, 34, 0, 4)
+UptimeTitleLbl.BackgroundTransparency = 1
+UptimeTitleLbl.Text = "uptime"
+UptimeTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+UptimeTitleLbl.TextSize = 9
+UptimeTitleLbl.Font = Enum.Font.Gotham
+UptimeTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+UptimeTitleLbl.Parent = UptimeRow
+
+local UptimeValueLbl = Instance.new("TextLabel")
+UptimeValueLbl.Size = UDim2.new(1, -40, 0, 20)
+UptimeValueLbl.Position = UDim2.new(0, 34, 0, 20)
+UptimeValueLbl.BackgroundTransparency = 1
+UptimeValueLbl.Text = "00:00:00"
+UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+UptimeValueLbl.TextSize = 14
+UptimeValueLbl.Font = Enum.Font.GothamBold
+UptimeValueLbl.TextXAlignment = Enum.TextXAlignment.Left
+UptimeValueLbl.Parent = UptimeRow
+
+-- ── Kicks prevented display ──
+local KicksRow = Instance.new("Frame")
+KicksRow.Size = UDim2.new(1, -16, 0, 44)
+KicksRow.Position = UDim2.new(0, 8, 0, 150)
+KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+KicksRow.BorderSizePixel = 0
+KicksRow.Parent = miscPage
+Instance.new("UICorner", KicksRow).CornerRadius = UDim.new(0, 5)
+
+local KicksRS = Instance.new("UIStroke")
+KicksRS.Color = Color3.fromRGB(36, 36, 36)
+KicksRS.Thickness = 1
+KicksRS.Parent = KicksRow
+
+local KicksIcon = Instance.new("TextLabel")
+KicksIcon.Size = UDim2.new(0, 20, 0, 20)
+KicksIcon.Position = UDim2.new(0, 10, 0.5, -10)
+KicksIcon.BackgroundTransparency = 1
+KicksIcon.Text = "🛡"
+KicksIcon.TextSize = 14
+KicksIcon.Font = Enum.Font.GothamBold
+KicksIcon.Parent = KicksRow
+
+local KicksTitleLbl = Instance.new("TextLabel")
+KicksTitleLbl.Size = UDim2.new(1, -40, 0, 16)
+KicksTitleLbl.Position = UDim2.new(0, 34, 0, 4)
+KicksTitleLbl.BackgroundTransparency = 1
+KicksTitleLbl.Text = "kicks prevented"
+KicksTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+KicksTitleLbl.TextSize = 9
+KicksTitleLbl.Font = Enum.Font.Gotham
+KicksTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+KicksTitleLbl.Parent = KicksRow
+
+local KicksValueLbl = Instance.new("TextLabel")
+KicksValueLbl.Size = UDim2.new(1, -40, 0, 20)
+KicksValueLbl.Position = UDim2.new(0, 34, 0, 20)
+KicksValueLbl.BackgroundTransparency = 1
+KicksValueLbl.Text = "0"
+KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+KicksValueLbl.TextSize = 14
+KicksValueLbl.Font = Enum.Font.GothamBold
+KicksValueLbl.TextXAlignment = Enum.TextXAlignment.Left
+KicksValueLbl.Parent = KicksRow
+
+-- update uptime & kick count every frame
+local function formatTime(seconds)
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = math.floor(seconds % 60)
+    return string.format("%02d:%02d:%02d", h, m, s)
+end
+
+RunService.Heartbeat:Connect(function()
+    if antiKickEnabled and antiKickStartTime then
+        UptimeValueLbl.Text = formatTime(tick() - antiKickStartTime)
+        UptimeValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
+        UptimeRS.Color = Color3.fromRGB(70, 46, 140)
+        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
+    else
+        UptimeValueLbl.Text = "00:00:00"
+        UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+        UptimeRS.Color = Color3.fromRGB(36, 36, 36)
+        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+    end
+
+    KicksValueLbl.Text = tostring(antiKickCount)
+    if antiKickCount > 0 then
+        KicksValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
+        KicksRS.Color = Color3.fromRGB(70, 46, 140)
+        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
+    else
+        KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+        KicksRS.Color = Color3.fromRGB(36, 36, 36)
+        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+    end
+end)
 
 -- ═══════════════════════════════════════
 --  MINIMIZE / CLOSE
