@@ -6,6 +6,15 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 
+-- ═══════════════════════════════════════
+--  ANTI-KICK / ANTI-AFK
+-- ═══════════════════════════════════════
+local VirtualUser = game:GetService("VirtualUser")
+Players.LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
 local RENEW_INTERVAL = 55
