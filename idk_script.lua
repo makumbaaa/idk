@@ -5,6 +5,54 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+
+-- ═══════════════════════════════════════
+--  CONFIGURATION (SAVE/LOAD)
+-- ═══════════════════════════════════════
+local CONFIG_FILE = "idk_script_config.json"
+
+local config = {
+    antiKick = false,
+    machines = {
+        Huge = false,
+        Titanic = false,
+        Gargantuan = false
+    }
+}
+
+local function saveConfig()
+    if writefile then
+        local success, err = pcall(function()
+            writefile(CONFIG_FILE, HttpService:JSONEncode(config))
+        end)
+        if not success then
+            warn("[idk script] Failed to save config: " .. tostring(err))
+        end
+    end
+end
+
+local function loadConfig()
+    if isfile and readfile and isfile(CONFIG_FILE) then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(CONFIG_FILE))
+        end)
+        if success and type(result) == "table" then
+            if type(result.antiKick) == "boolean" then
+                config.antiKick = result.antiKick
+            end
+            if type(result.machines) == "table" then
+                for k, v in pairs(result.machines) do
+                    if type(v) == "boolean" then
+                        config.machines[k] = v
+                    end
+                end
+            end
+        end
+    end
+end
+
+loadConfig()
 
 -- ═══════════════════════════════════════
 --  ANTI-KICK / ANTI-AFK STATE
@@ -14,10 +62,24 @@ local antiKickEnabled = false
 local antiKickStartTime = nil
 local antiKickCount = 0
 
-Players.LocalPlayer.Idled:Connect(function()
-    if antiKickEnabled then
+-- Improved Anti-Kick for better compatibility
+local function simulateActivity()
+    local success = pcall(function()
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new())
+    end)
+    if not success then
+        -- Fallback for some executors
+        local vu = game:GetService("VirtualUser")
+        vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+    end
+end
+
+Players.LocalPlayer.Idled:Connect(function()
+    if antiKickEnabled then
+        simulateActivity()
         antiKickCount += 1
     end
 end)
@@ -172,7 +234,7 @@ local MinBtn   = makeTitleBtn(-54, Color3.fromRGB(175, 135, 25), "—")
 local CloseBtn = makeTitleBtn(-28, Color3.fromRGB(155, 40, 40),  "×")
 
 -- ═══════════════════════════════════════
---  SIDEBAR  (manual positions, no layout)
+--  SIDEBAR
 -- ═══════════════════════════════════════
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 100, 1, -40)
@@ -201,7 +263,7 @@ ContentArea.BorderSizePixel = 0
 ContentArea.Parent = Frame
 
 -- ═══════════════════════════════════════
---  PAGES + TAB BUTTONS  (manual y pos)
+--  PAGES + TAB BUTTONS
 -- ═══════════════════════════════════════
 local TABS = { "main", "auto farm", "event", "misc" }
 local tabButtons = {}
@@ -236,7 +298,7 @@ local function switchTab(name)
     end
 end
 
--- build tab buttons with explicit Y positions
+-- build tab buttons
 local tabYPositions = { 12, 52, 92, 132 }
 for i, name in ipairs(TABS) do
     local btn = Instance.new("TextButton")
@@ -399,6 +461,10 @@ local function makeCheckbox(machine, yPos)
         RS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
         Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
+        
+        -- Save settings
+        config.machines[machine.tier] = state
+        saveConfig()
     end
 
     RunService.Heartbeat:Connect(function()
@@ -420,6 +486,12 @@ local function makeCheckbox(machine, yPos)
             lastRenew[machine.tier] = tick()
         end
     end)
+
+    -- Apply initial loaded state
+    if config.machines[machine.tier] then
+        setActive(true)
+        updateStatus()
+    end
 end
 
 makeCheckbox(MACHINES[1], 52)
@@ -536,6 +608,10 @@ local function setAntiKickActive(state)
         AKStatusLbl.Text = "disabled"
         AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
     end
+    
+    -- Save settings
+    config.antiKick = state
+    saveConfig()
 end
 
 local AKBtn = Instance.new("TextButton")
@@ -547,6 +623,11 @@ AKBtn.Parent = AKRow
 AKBtn.MouseButton1Click:Connect(function()
     setAntiKickActive(not antiKickEnabled)
 end)
+
+-- Apply initial loaded state
+if config.antiKick then
+    setAntiKickActive(true)
+end
 
 -- ── Uptime display ──
 local UptimeRow = Instance.new("Frame")
