@@ -1,4 +1,4 @@
--- idk script | ENI for LO
+-- idk script 
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
