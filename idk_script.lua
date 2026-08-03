@@ -101,7 +101,14 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "idk_script"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+local oldGui = PlayerGui:FindFirstChild(ScreenGui.Name)
+if oldGui then
+    oldGui:Destroy()
+end
+
+ScreenGui.Parent = PlayerGui
 
 -- ═══════════════════════════════════════
 --  ICON
@@ -114,6 +121,7 @@ StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
 StarBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 StarBtn.BorderSizePixel = 0
+StarBtn.ClipsDescendants = true
 StarBtn.Text = ""
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
