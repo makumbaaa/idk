@@ -1,18 +1,12 @@
--- idk script 
+-- idk script - WERSJA DLA EXECUTORA
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
+-- Sprawdzenie czy executor obsługuje getgenv() - jeśli tak, to używamy go do przechowywania configu
+local env = getgenv and getgenv() or _G
 
 -- ═══════════════════════════════════════
---  CONFIGURATION (SAVE/LOAD)
+--  KONFIGURACJA
 -- ═══════════════════════════════════════
-local CONFIG_FILE = "idk_script_config.json"
-
-local config = {
+local config = env.idk_config or {
     antiKick = false,
     machines = {
         Huge = false,
@@ -20,11 +14,17 @@ local config = {
         Gargantuan = false
     }
 }
+env.idk_config = config
+
+-- ═══════════════════════════════════════
+--  ZAPISYWANIE KONFIGURACJI DLA EXECUTORA
+-- ═══════════════════════════════════════
+local CONFIG_FILE = "idk_script_config.json"
 
 local function saveConfig()
     if writefile then
         local success, err = pcall(function()
-            writefile(CONFIG_FILE, HttpService:JSONEncode(config))
+            writefile(CONFIG_FILE, game:GetService("HttpService"):JSONEncode(config))
         end)
         if not success then
             warn("[idk script] Failed to save config: " .. tostring(err))
@@ -35,7 +35,7 @@ end
 local function loadConfig()
     if isfile and readfile and isfile(CONFIG_FILE) then
         local success, result = pcall(function()
-            return HttpService:JSONDecode(readfile(CONFIG_FILE))
+            return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE))
         end)
         if success and type(result) == "table" then
             if type(result.antiKick) == "boolean" then
@@ -48,16 +48,22 @@ local function loadConfig()
                     end
                 end
             end
+            env.idk_config = config
         end
     end
 end
 
-loadConfig()
-
 -- ═══════════════════════════════════════
---  ANTI-KICK / ANTI-AFK STATE
+--  GŁÓWNE ZMIENNE
 -- ═══════════════════════════════════════
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 local VirtualUser = game:GetService("VirtualUser")
+
 local antiKickEnabled = false
 local antiKickStartTime = nil
 local antiKickCount = 0
@@ -69,20 +75,56 @@ local function simulateActivity()
     end)
     if not success then
         local vu = game:GetService("VirtualUser")
-        vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
         task.wait(1)
-        vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera and workspace.CurrentCamera.CFrame or CFrame.new())
     end
 end
 
-Players.LocalPlayer.Idled:Connect(function()
+-- Sprawdzenie czy LocalPlayer istnieje
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    warn("[idk script] Waiting for LocalPlayer...")
+    repeat task.wait() until Players.LocalPlayer
+    LocalPlayer = Players.LocalPlayer
+end
+
+LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         simulateActivity()
-        antiKickCount += 1
+        antiKickCount = antiKickCount + 1
     end
 end)
 
-local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
+-- ═══════════════════════════════════════
+--  SPRAWDZENIE EVENTU
+-- ═══════════════════════════════════════
+local Event = nil
+local eventFound = false
+
+pcall(function()
+    Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
+    if Event then
+        eventFound = true
+    end
+end)
+
+if not eventFound then
+    warn("[idk script] Event 'GardenChanceMachine_AddTime' not found!")
+    -- Próba znalezienia eventu w innych lokalizacjach
+    pcall(function()
+        for _, child in ipairs(ReplicatedStorage:GetChildren()) do
+            if child:IsA("RemoteEvent") or child:IsA("RemoteFunction") then
+                if string.find(child.Name, "GardenChance") or string.find(child.Name, "AddTime") then
+                    Event = child
+                    eventFound = true
+                    print("[idk script] Found event: " .. child.Name)
+                    break
+                end
+            end
+        end
+    end)
+end
 
 local RENEW_INTERVAL = 55
 local lastRenew = {}
@@ -94,18 +136,17 @@ local MACHINES = {
 }
 
 -- ═══════════════════════════════════════
---  SCREEN GUI
+--  GUI
 -- ═══════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "idk_script"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ═══════════════════════════════════════
---  ICON
+--  STAR BUTTON
 -- ═══════════════════════════════════════
-
 local StarBtn = Instance.new("TextButton")
 StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
@@ -115,47 +156,66 @@ StarBtn.Text = ""
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
+Instance.new("UICorner", StarBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", StarBtn).Color = Color3.fromRGB(200, 155, 40)
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(1, 0)
-Corner.Parent = StarBtn
+local StarLabel = Instance.new("TextLabel")
+StarLabel.Size = UDim2.new(1, 0, 1, 0)
+StarLabel.BackgroundTransparency = 1
+StarLabel.Text = "★"
+StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+StarLabel.TextSize = 28
+StarLabel.Font = Enum.Font.GothamBold
+StarLabel.ZIndex = 10
+StarLabel.Parent = StarBtn
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(200, 155, 40)
-Stroke.Parent = StarBtn
-
--- Ikona
-local StarIcon = Instance.new("ImageLabel")
-StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
-StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
-StarIcon.BackgroundTransparency = 1
-StarIcon.Image = "rbxassetid://72164665440799" -- ← WSTAW TUTAJ SWOJE ASSET ID
-StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
-StarIcon.ScaleType = Enum.ScaleType.Fit
-StarIcon.ZIndex = 10
-StarIcon.Parent = StarBtn
-
--- Pulsowanie koloru
-local pulseTween = TweenService:Create(
-    StarIcon,
-    TweenInfo.new(
-        0.85,
-        Enum.EasingStyle.Sine,
-        Enum.EasingDirection.InOut,
-        -1,
-        true
-    ),
-    {
-        ImageColor3 = Color3.fromRGB(255, 220, 80)
-    }
+local pulseTween = TweenService:Create(StarLabel,
+    TweenInfo.new(0.85, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+    { TextColor3 = Color3.fromRGB(255, 220, 80) }
 )
-
-pulseTween:Play()
 
 -- star drag
 local starDragging = false
-local starMoved    = false
+local starMoved = false
 local starDragStart, starPosStart
+
+StarBtn.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        starDragging = true
+        starMoved = false
+        starDragStart = i.Position
+        starPosStart = StarBtn.Position
+    end
+end)
+
+StarBtn.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local wasClick = not starMoved
+        starDragging = false
+        starMoved = false
+        if wasClick then
+            Frame.Visible = true
+            StarBtn.Visible = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        end
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - starDragStart
+        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
+            starMoved = true
+        end
+        if starMoved then
+            StarBtn.Position = UDim2.new(
+                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
+                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
+            )
+        end
+    end
+end)
 
 -- ═══════════════════════════════════════
 --  MAIN FRAME
@@ -172,7 +232,7 @@ Frame.Parent = ScreenGui
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 7)
 Instance.new("UIStroke", Frame).Color = Color3.fromRGB(44, 44, 44)
 
--- ── Title bar ──
+-- Title bar
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 38)
 TitleBar.Position = UDim2.new(0, 0, 0, 0)
@@ -228,12 +288,10 @@ local function makeTitleBtn(xOff, bg, sym)
     return b
 end
 
-local MinBtn   = makeTitleBtn(-54, Color3.fromRGB(175, 135, 25), "—")
-local CloseBtn = makeTitleBtn(-28, Color3.fromRGB(155, 40, 40),  "×")
+local MinBtn = makeTitleBtn(-54, Color3.fromRGB(175, 135, 25), "—")
+local CloseBtn = makeTitleBtn(-28, Color3.fromRGB(155, 40, 40), "×")
 
--- ═══════════════════════════════════════
---  SIDEBAR
--- ═══════════════════════════════════════
+-- Sidebar
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 100, 1, -40)
 Sidebar.Position = UDim2.new(0, 0, 0, 40)
@@ -249,9 +307,7 @@ SideLine.BackgroundColor3 = Color3.fromRGB(34, 34, 34)
 SideLine.BorderSizePixel = 0
 SideLine.Parent = Sidebar
 
--- ═══════════════════════════════════════
---  CONTENT AREA
--- ═══════════════════════════════════════
+-- Content Area
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -102, 1, -42)
 ContentArea.Position = UDim2.new(0, 102, 0, 42)
@@ -259,12 +315,10 @@ ContentArea.BackgroundTransparency = 1
 ContentArea.BorderSizePixel = 0
 ContentArea.Parent = Frame
 
--- ═══════════════════════════════════════
---  PAGES + TAB BUTTONS
--- ═══════════════════════════════════════
+-- Pages + Tab Buttons
 local TABS = { "main", "auto farm", "event", "misc" }
 local tabButtons = {}
-local tabPages   = {}
+local tabPages = {}
 
 for _, name in ipairs(TABS) do
     local page = Instance.new("Frame")
@@ -285,11 +339,15 @@ local function switchTab(name)
             if n == name then
                 b.BackgroundColor3 = Color3.fromRGB(30, 24, 52)
                 b.TextColor3 = Color3.fromRGB(200, 190, 230)
-                b.ActiveBar.Visible = true
+                if b.ActiveBar then
+                    b.ActiveBar.Visible = true
+                end
             else
                 b.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
                 b.TextColor3 = Color3.fromRGB(70, 70, 70)
-                b.ActiveBar.Visible = false
+                if b.ActiveBar then
+                    b.ActiveBar.Visible = false
+                end
             end
         end
     end
@@ -321,9 +379,122 @@ for i, name in ipairs(TABS) do
     bar.ZIndex = 4
     bar.Parent = btn
     Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    btn.ActiveBar = bar
 
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
 end
+
+-- ═══════════════════════════════════════
+--  MAIN PAGE
+-- ═══════════════════════════════════════
+local mainPage = tabPages["main"]
+
+local MainWelcomeLbl = Instance.new("TextLabel")
+MainWelcomeLbl.Size = UDim2.new(1, -16, 0, 24)
+MainWelcomeLbl.Position = UDim2.new(0, 10, 0, 10)
+MainWelcomeLbl.BackgroundTransparency = 1
+MainWelcomeLbl.Text = "idk script v6"
+MainWelcomeLbl.TextColor3 = Color3.fromRGB(200, 190, 230)
+MainWelcomeLbl.TextSize = 16
+MainWelcomeLbl.Font = Enum.Font.GothamBold
+MainWelcomeLbl.TextXAlignment = Enum.TextXAlignment.Left
+MainWelcomeLbl.Parent = mainPage
+
+local MainSubLbl = Instance.new("TextLabel")
+MainSubLbl.Size = UDim2.new(1, -16, 0, 18)
+MainSubLbl.Position = UDim2.new(0, 10, 0, 40)
+MainSubLbl.BackgroundTransparency = 1
+MainSubLbl.Text = "Wybierz zakładkę po lewej, aby skonfigurować"
+MainSubLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+MainSubLbl.TextSize = 10
+MainSubLbl.Font = Enum.Font.Gotham
+MainSubLbl.TextXAlignment = Enum.TextXAlignment.Left
+MainSubLbl.Parent = mainPage
+
+-- Info o maszynach
+local InfoFrame = Instance.new("Frame")
+InfoFrame.Size = UDim2.new(1, -16, 0, 120)
+InfoFrame.Position = UDim2.new(0, 10, 0, 70)
+InfoFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+InfoFrame.BorderSizePixel = 0
+InfoFrame.Parent = mainPage
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 5)
+
+local InfoStroke = Instance.new("UIStroke")
+InfoStroke.Color = Color3.fromRGB(36, 36, 36)
+InfoStroke.Thickness = 1
+InfoStroke.Parent = InfoFrame
+
+local InfoTitle = Instance.new("TextLabel")
+InfoTitle.Size = UDim2.new(1, -20, 0, 20)
+InfoTitle.Position = UDim2.new(0, 12, 0, 8)
+InfoTitle.BackgroundTransparency = 1
+InfoTitle.Text = "Status maszyn"
+InfoTitle.TextColor3 = Color3.fromRGB(86, 86, 86)
+InfoTitle.TextSize = 10
+InfoTitle.Font = Enum.Font.GothamBold
+InfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+InfoTitle.Parent = InfoFrame
+
+local function createStatusLine(text, yPos)
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(1, -16, 0, 22)
+    line.Position = UDim2.new(0, 8, 0, yPos)
+    line.BackgroundTransparency = 1
+    line.Parent = InfoFrame
+    
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 6, 0, 6)
+    dot.Position = UDim2.new(0, 0, 0.5, -3)
+    dot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    dot.BorderSizePixel = 0
+    dot.Parent = line
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -14, 1, 0)
+    lbl.Position = UDim2.new(0, 14, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+    lbl.TextSize = 10
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = line
+    
+    return { dot = dot, label = lbl }
+end
+
+local hugeStatus = createStatusLine("Huge Luck", 32)
+local titanicStatus = createStatusLine("Titanic Luck", 58)
+local gargantuanStatus = createStatusLine("Gargantuan Luck", 84)
+
+-- ═══════════════════════════════════════
+--  AUTO FARM PAGE
+-- ═══════════════════════════════════════
+local autoFarmPage = tabPages["auto farm"]
+
+local AutoFarmLbl = Instance.new("TextLabel")
+AutoFarmLbl.Size = UDim2.new(1, -16, 0, 24)
+AutoFarmLbl.Position = UDim2.new(0, 10, 0, 10)
+AutoFarmLbl.BackgroundTransparency = 1
+AutoFarmLbl.Text = "Auto Farm"
+AutoFarmLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+AutoFarmLbl.TextSize = 14
+AutoFarmLbl.Font = Enum.Font.GothamBold
+AutoFarmLbl.TextXAlignment = Enum.TextXAlignment.Left
+AutoFarmLbl.Parent = autoFarmPage
+
+local AutoFarmSub = Instance.new("TextLabel")
+AutoFarmSub.Size = UDim2.new(1, -16, 0, 18)
+AutoFarmSub.Position = UDim2.new(0, 10, 0, 38)
+AutoFarmSub.BackgroundTransparency = 1
+AutoFarmSub.Text = "Ta funkcja będzie dostępna wkrótce"
+AutoFarmSub.TextColor3 = Color3.fromRGB(60, 60, 60)
+AutoFarmSub.TextSize = 10
+AutoFarmSub.Font = Enum.Font.Gotham
+AutoFarmSub.TextXAlignment = Enum.TextXAlignment.Left
+AutoFarmSub.Parent = autoFarmPage
 
 -- ═══════════════════════════════════════
 --  EVENT PAGE
@@ -371,21 +542,32 @@ local function updateStatus()
     for _, m in ipairs(MACHINES) do if m.enabled then any = true break end end
     if any then
         StatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
-        StatusLbl.Text             = "running"
-        StatusLbl.TextColor3       = Color3.fromRGB(138, 118, 200)
+        StatusLbl.Text = "running"
+        StatusLbl.TextColor3 = Color3.fromRGB(138, 118, 200)
     else
         StatusDot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        StatusLbl.Text             = "idle"
-        StatusLbl.TextColor3       = Color3.fromRGB(60, 60, 60)
+        StatusLbl.Text = "idle"
+        StatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
     end
 end
 
 local function fireRenew(machine)
+    if not eventFound or not Event then
+        warn("[idk] Event not found - cannot renew: " .. machine.tier)
+        return
+    end
     local ok, err = pcall(function()
-        Event:InvokeServer(machine.tier, machine.slot, 600)
+        if Event:IsA("RemoteFunction") then
+            Event:InvokeServer(machine.tier, machine.slot, 600)
+        elseif Event:IsA("RemoteEvent") then
+            Event:FireServer(machine.tier, machine.slot, 600)
+        end
     end)
-    if ok then machine.count += 1
-    else warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) end
+    if ok then 
+        machine.count = machine.count + 1
+    else 
+        warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) 
+    end
 end
 
 local function makeCheckbox(machine, yPos)
@@ -451,14 +633,15 @@ local function makeCheckbox(machine, yPos)
     local function setActive(state)
         machine.enabled = state
         Fill.Visible = state
-        BS.Color             = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
-        Box.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36)  or Color3.fromRGB(30, 30, 30)
-        Lbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
-        RS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
-        Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
-        Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
+        BS.Color = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
+        Box.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36) or Color3.fromRGB(30, 30, 30)
+        Lbl.TextColor3 = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
+        RS.Color = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
+        Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44) or Color3.fromRGB(26, 26, 26)
+        Ctr.TextColor3 = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
         config.machines[machine.tier] = state
         saveConfig()
+        updateStatus()
     end
 
     RunService.Heartbeat:Connect(function()
@@ -474,7 +657,6 @@ local function makeCheckbox(machine, yPos)
     Btn.MouseButton1Click:Connect(function()
         local s = not machine.enabled
         setActive(s)
-        updateStatus()
         if s then
             fireRenew(machine)
             lastRenew[machine.tier] = tick()
@@ -581,11 +763,11 @@ AKLbl.Parent = AKRow
 local function setAntiKickActive(state)
     antiKickEnabled = state
     AKFill.Visible = state
-    AKBS.Color             = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
-    AKBox.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36)  or Color3.fromRGB(30, 30, 30)
-    AKLbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
-    AKRS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
-    AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
+    AKBS.Color = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
+    AKBox.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36) or Color3.fromRGB(30, 30, 30)
+    AKLbl.TextColor3 = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
+    AKRS.Color = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
+    AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44) or Color3.fromRGB(26, 26, 26)
     if state then
         antiKickStartTime = tick()
         AKStatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
@@ -714,6 +896,32 @@ RunService.Heartbeat:Connect(function()
         KicksRS.Color = Color3.fromRGB(36, 36, 36)
         KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
     end
+    
+    -- Aktualizacja statusów na głównej stronie
+    local colors = {
+        [true] = Color3.fromRGB(110, 80, 220),
+        [false] = Color3.fromRGB(50, 50, 50)
+    }
+    local textColors = {
+        [true] = Color3.fromRGB(132, 112, 198),
+        [false] = Color3.fromRGB(60, 60, 60)
+    }
+    local statusText = {
+        [true] = "ON ✓",
+        [false] = "OFF ✗"
+    }
+    
+    hugeStatus.dot.BackgroundColor3 = colors[MACHINES[1].enabled]
+    hugeStatus.label.TextColor3 = textColors[MACHINES[1].enabled]
+    hugeStatus.label.Text = "Huge Luck: " .. statusText[MACHINES[1].enabled] .. " (" .. MACHINES[1].count .. ")"
+    
+    titanicStatus.dot.BackgroundColor3 = colors[MACHINES[2].enabled]
+    titanicStatus.label.TextColor3 = textColors[MACHINES[2].enabled]
+    titanicStatus.label.Text = "Titanic Luck: " .. statusText[MACHINES[2].enabled] .. " (" .. MACHINES[2].count .. ")"
+    
+    gargantuanStatus.dot.BackgroundColor3 = colors[MACHINES[3].enabled]
+    gargantuanStatus.label.TextColor3 = textColors[MACHINES[3].enabled]
+    gargantuanStatus.label.Text = "Gargantuan Luck: " .. statusText[MACHINES[3].enabled] .. " (" .. MACHINES[3].count .. ")"
 end)
 
 -- ═══════════════════════════════════════
@@ -727,47 +935,6 @@ end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
-end)
-
--- ═══════════════════════════════════════
---  STAR CONNECTIONS (down here so Frame exists)
--- ═══════════════════════════════════════
-StarBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        starDragging  = true
-        starMoved     = false
-        starDragStart = i.Position
-        starPosStart  = StarBtn.Position
-    end
-end)
-
-StarBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        local wasClick = not starMoved
-        starDragging   = false
-        starMoved      = false
-        if wasClick then
-            Frame.Visible        = true
-            StarBtn.Visible      = false
-            pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-        end
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - starDragStart
-        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
-            starMoved = true
-        end
-        if starMoved then
-            StarBtn.Position = UDim2.new(
-                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
-                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
-            )
-        end
-    end
 end)
 
 -- ═══════════════════════════════════════
@@ -786,4 +953,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+-- ═══════════════════════════════════════
+--  WCZYTANIE KONFIGURACJI I START
+-- ═══════════════════════════════════════
+loadConfig()
 switchTab("main")
+
+print("[idk script] Started successfully!")
