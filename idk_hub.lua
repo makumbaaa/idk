@@ -124,9 +124,11 @@ ScreenGui.Parent = PlayerGui
 -- ═══════════════════════════════════════
 local ICON_DECAL_ID = "91252878133096"
 
--- 4x4 siatka -> 16 klatek
+-- Sprite-sheet: 1024x1024 px, siatka 4x4 -> 16 klatek 256x256 px każda
 local SPRITE_COLS   = 4
 local SPRITE_ROWS   = 4
+local FRAME_W       = 256
+local FRAME_H       = 256
 local SPRITE_FRAMES = SPRITE_COLS * SPRITE_ROWS
 local FRAME_TIME    = 0.1   -- sekundy na klatkę (10 FPS)
 local currentFrame  = 0     -- 0..15
@@ -139,14 +141,14 @@ StarBtn.BorderSizePixel = 0
 StarBtn.ClipsDescendants = true
 StarBtn.Image = "rbxassetid://" .. ICON_DECAL_ID
 StarBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
-StarBtn.ScaleType = Enum.ScaleType.Slice
+StarBtn.ScaleType = Enum.ScaleType.Stretch
 StarBtn.AutoButtonColor = false
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
 
--- Pokaż jedną klatkę z sheetu (1/4 szerokości, 1/4 wysokości)
-StarBtn.ImageRectSize   = Vector2.new(1 / SPRITE_COLS, 1 / SPRITE_ROWS)
+-- Wycinek dokadnie jednej klatki 256x256 px
+StarBtn.ImageRectSize   = Vector2.new(FRAME_W, FRAME_H)
 StarBtn.ImageRectOffset = Vector2.new(0, 0)
 
 local Corner = Instance.new("UICorner")
@@ -158,31 +160,32 @@ Stroke.Color = Color3.fromRGB(62, 62, 62)
 Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 Stroke.Parent = StarBtn
 
--- Przesuwa wycinek na klatkę idx w siatce 4x4
+-- Ustawia wycinek na klatkę idx w siatce 4x4 (offset w pikselach)
 local function showFrame(idx)
     local col = idx % SPRITE_COLS
     local row = math.floor(idx / SPRITE_COLS) % SPRITE_ROWS
-    StarBtn.ImageRectOffset = Vector2.new(
-        col * (1 / SPRITE_COLS),
-        row * (1 / SPRITE_ROWS)
-    )
+    StarBtn.ImageRectOffset = Vector2.new(col * FRAME_W, row * FRAME_H)
 end
 
+-- Rozwiązuje docelowy ID decala na jego Texture (URL rbxassetid://...),
+-- ale ustawia go jako jedyny Image + reinstaluje wycinek klatki.
+-- To eliminuje problem podwójnego obrazka (stary + nowy).
 local function resolveIconImage()
-    -- Rozpakuj docelową teksturę, gdy asset jest Decalem/MeshPartem
     local ok, objects = pcall(function()
         return game:GetObjects("rbxassetid://" .. ICON_DECAL_ID)
     end)
 
     if ok and type(objects) == "table" then
-        local decal = objects[1]
-        if decal and decal:IsA("Decal") and decal.Texture ~= "" then
-            StarBtn.Image = decal.Texture
+        local first = objects[1]
+        if first and first:IsA("Decal") and first.Texture ~= "" then
+            -- Najpierw wycinek, potem Image — kolejność zapobiega pokazaniu
+            -- pełnego sheetu (czarnego kwadratu) przez chwilę.
+            showFrame(currentFrame)
+            StarBtn.Image = first.Texture
+            StarBtn.ImageRectSize = Vector2.new(FRAME_W, FRAME_H)
+            showFrame(currentFrame)
         end
     end
-
-    -- Po zmianie Image wycinek nadal obowiązuje — reinstalujemy bieżącą klatkę
-    showFrame(currentFrame)
 
     pcall(function()
         ContentProvider:PreloadAsync({ StarBtn })
