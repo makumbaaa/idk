@@ -129,7 +129,7 @@ local StarIcon = Instance.new("ImageLabel")
 StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
 StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
 StarIcon.BackgroundTransparency = 1
-StarIcon.Image = "rbxassetid://72164665440799" -- ← WSTAW TUTAJ SWOJE ASSET ID
+StarIcon.Image = "rbxthumb://type=Asset&id=72164665440799&w=150&h=150"
 StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
 StarIcon.ScaleType = Enum.ScaleType.Fit
 StarIcon.ZIndex = 10
