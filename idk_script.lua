@@ -1,5 +1,9 @@
--- idk script 
+-- idk script - WERSJA DLA LOCALSCRIPT
 
+-- Sprawdzenie czy działamy w odpowiednim środowisku
+local isLocalScript = true
+
+-- Jeśli to LocalScript, niektóre funkcje nie będą działać
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -8,10 +12,8 @@ local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 
 -- ═══════════════════════════════════════
---  CONFIGURATION (SAVE/LOAD)
+--  KONFIGURACJA - BEZ ZAPISU DO PLIKU (dla LocalScript)
 -- ═══════════════════════════════════════
-local CONFIG_FILE = "idk_script_config.json"
-
 local config = {
     antiKick = false,
     machines = {
@@ -21,38 +23,15 @@ local config = {
     }
 }
 
+-- Funkcje zapisu/odczytu - wyłączone dla LocalScript
 local function saveConfig()
-    if writefile then
-        local success, err = pcall(function()
-            writefile(CONFIG_FILE, HttpService:JSONEncode(config))
-        end)
-        if not success then
-            warn("[idk script] Failed to save config: " .. tostring(err))
-        end
-    end
+    -- Nie można zapisywać plików z LocalScript
+    -- Można użyć do tego DataStore przez RemoteEvent
 end
 
 local function loadConfig()
-    if isfile and readfile and isfile(CONFIG_FILE) then
-        local success, result = pcall(function()
-            return HttpService:JSONDecode(readfile(CONFIG_FILE))
-        end)
-        if success and type(result) == "table" then
-            if type(result.antiKick) == "boolean" then
-                config.antiKick = result.antiKick
-            end
-            if type(result.machines) == "table" then
-                for k, v in pairs(result.machines) do
-                    if type(v) == "boolean" then
-                        config.machines[k] = v
-                    end
-                end
-            end
-        end
-    end
+    -- Nie można odczytywać plików z LocalScript
 end
-
-loadConfig()
 
 -- ═══════════════════════════════════════
 --  ANTI-KICK / ANTI-AFK STATE
@@ -75,14 +54,42 @@ local function simulateActivity()
     end
 end
 
-Players.LocalPlayer.Idled:Connect(function()
+-- Sprawdzenie czy LocalPlayer istnieje
+local LocalPlayer = Players.LocalPlayer
+if not LocalPlayer then
+    warn("LocalPlayer not found - script will retry")
+    Players.PlayerAdded:Wait()
+    LocalPlayer = Players.LocalPlayer
+end
+
+LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         simulateActivity()
         antiKickCount += 1
     end
 end)
 
-local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
+-- ═══════════════════════════════════════
+--  SPRAWDZENIE CZY ISTNIEJE NETWORK
+-- ═══════════════════════════════════════
+local Event = nil
+local eventFound = false
+
+-- Próba znalezienia eventu z zabezpieczeniem
+pcall(function()
+    Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
+    if Event then
+        eventFound = true
+    end
+end)
+
+if not eventFound then
+    warn("[idk script] Event 'GardenChanceMachine_AddTime' not found - some features may not work")
+    -- Stwórz dummy event żeby nie było błędów
+    Event = {
+        InvokeServer = function() end
+    }
+end
 
 local RENEW_INTERVAL = 55
 local lastRenew = {}
@@ -100,7 +107,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "idk_script"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 -- ═══════════════════════════════════════
 --  STAR BUTTON
@@ -137,7 +144,6 @@ local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
 
--- star connections (down here so Frame exists)
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         starDragging  = true
@@ -350,7 +356,7 @@ for i, name in ipairs(TABS) do
 end
 
 -- ═══════════════════════════════════════
---  MAIN PAGE (DODANA ZAWARTOŚĆ)
+--  MAIN PAGE
 -- ═══════════════════════════════════════
 local mainPage = tabPages["main"]
 
@@ -463,7 +469,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  AUTO FARM PAGE (pusta na razie)
+--  AUTO FARM PAGE
 -- ═══════════════════════════════════════
 local autoFarmPage = tabPages["auto farm"]
 
@@ -545,6 +551,10 @@ local function updateStatus()
 end
 
 local function fireRenew(machine)
+    if not eventFound then
+        warn("[idk] Event not found - cannot renew: " .. machine.tier)
+        return
+    end
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 600)
     end)
@@ -625,7 +635,6 @@ local function makeCheckbox(machine, yPos)
         Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
         config.machines[machine.tier] = state
-        saveConfig()
         updateStatus()
     end
 
@@ -718,4 +727,197 @@ AKBox.Position = UDim2.new(0, 10, 0.5, -7)
 AKBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 AKBox.BorderSizePixel = 0
 AKBox.Parent = AKRow
-Instance.new("UICorner", AKBox).Corner
+Instance.new("UICorner", AKBox).CornerRadius = UDim.new(0, 3)
+
+local AKBS = Instance.new("UIStroke")
+AKBS.Color = Color3.fromRGB(60, 60, 60)
+AKBS.Thickness = 1
+AKBS.Parent = AKBox
+
+local AKFill = Instance.new("Frame")
+AKFill.Size = UDim2.new(0, 7, 0, 7)
+AKFill.Position = UDim2.new(0.5, -3, 0.5, -3)
+AKFill.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
+AKFill.BorderSizePixel = 0
+AKFill.Visible = false
+AKFill.Parent = AKBox
+Instance.new("UICorner", AKFill).CornerRadius = UDim.new(0, 2)
+
+local AKLbl = Instance.new("TextLabel")
+AKLbl.Size = UDim2.new(1, -55, 1, 0)
+AKLbl.Position = UDim2.new(0, 32, 0, 0)
+AKLbl.BackgroundTransparency = 1
+AKLbl.Text = "Anti-Kick"
+AKLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+AKLbl.TextSize = 12
+AKLbl.Font = Enum.Font.Gotham
+AKLbl.TextXAlignment = Enum.TextXAlignment.Left
+AKLbl.Parent = AKRow
+
+local function setAntiKickActive(state)
+    antiKickEnabled = state
+    AKFill.Visible = state
+    AKBS.Color             = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
+    AKBox.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36)  or Color3.fromRGB(30, 30, 30)
+    AKLbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
+    AKRS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
+    AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
+    if state then
+        antiKickStartTime = tick()
+        AKStatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
+        AKStatusLbl.Text = "active"
+        AKStatusLbl.TextColor3 = Color3.fromRGB(138, 118, 200)
+    else
+        antiKickStartTime = nil
+        AKStatusDot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        AKStatusLbl.Text = "disabled"
+        AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+    end
+    config.antiKick = state
+end
+
+local AKBtn = Instance.new("TextButton")
+AKBtn.Size = UDim2.new(1, 0, 1, 0)
+AKBtn.BackgroundTransparency = 1
+AKBtn.Text = ""
+AKBtn.Parent = AKRow
+AKBtn.MouseButton1Click:Connect(function()
+    setAntiKickActive(not antiKickEnabled)
+end)
+
+if config.antiKick then
+    setAntiKickActive(true)
+end
+
+-- uptime
+local UptimeRow = Instance.new("Frame")
+UptimeRow.Size = UDim2.new(1, -16, 0, 44)
+UptimeRow.Position = UDim2.new(0, 8, 0, 98)
+UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+UptimeRow.BorderSizePixel = 0
+UptimeRow.Parent = miscPage
+Instance.new("UICorner", UptimeRow).CornerRadius = UDim.new(0, 5)
+
+local UptimeRS = Instance.new("UIStroke")
+UptimeRS.Color = Color3.fromRGB(36, 36, 36)
+UptimeRS.Thickness = 1
+UptimeRS.Parent = UptimeRow
+
+local UptimeTitleLbl = Instance.new("TextLabel")
+UptimeTitleLbl.Size = UDim2.new(1, -40, 0, 16)
+UptimeTitleLbl.Position = UDim2.new(0, 34, 0, 4)
+UptimeTitleLbl.BackgroundTransparency = 1
+UptimeTitleLbl.Text = "uptime"
+UptimeTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+UptimeTitleLbl.TextSize = 9
+UptimeTitleLbl.Font = Enum.Font.Gotham
+UptimeTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+UptimeTitleLbl.Parent = UptimeRow
+
+local UptimeValueLbl = Instance.new("TextLabel")
+UptimeValueLbl.Size = UDim2.new(1, -40, 0, 20)
+UptimeValueLbl.Position = UDim2.new(0, 34, 0, 20)
+UptimeValueLbl.BackgroundTransparency = 1
+UptimeValueLbl.Text = "00:00:00"
+UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+UptimeValueLbl.TextSize = 14
+UptimeValueLbl.Font = Enum.Font.GothamBold
+UptimeValueLbl.TextXAlignment = Enum.TextXAlignment.Left
+UptimeValueLbl.Parent = UptimeRow
+
+local KicksRow = Instance.new("Frame")
+KicksRow.Size = UDim2.new(1, -16, 0, 44)
+KicksRow.Position = UDim2.new(0, 8, 0, 150)
+KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+KicksRow.BorderSizePixel = 0
+KicksRow.Parent = miscPage
+Instance.new("UICorner", KicksRow).CornerRadius = UDim.new(0, 5)
+
+local KicksRS = Instance.new("UIStroke")
+KicksRS.Color = Color3.fromRGB(36, 36, 36)
+KicksRS.Thickness = 1
+KicksRS.Parent = KicksRow
+
+local KicksTitleLbl = Instance.new("TextLabel")
+KicksTitleLbl.Size = UDim2.new(1, -40, 0, 16)
+KicksTitleLbl.Position = UDim2.new(0, 34, 0, 4)
+KicksTitleLbl.BackgroundTransparency = 1
+KicksTitleLbl.Text = "kicks prevented"
+KicksTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+KicksTitleLbl.TextSize = 9
+KicksTitleLbl.Font = Enum.Font.Gotham
+KicksTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+KicksTitleLbl.Parent = KicksRow
+
+local KicksValueLbl = Instance.new("TextLabel")
+KicksValueLbl.Size = UDim2.new(1, -40, 0, 20)
+KicksValueLbl.Position = UDim2.new(0, 34, 0, 20)
+KicksValueLbl.BackgroundTransparency = 1
+KicksValueLbl.Text = "0"
+KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+KicksValueLbl.TextSize = 14
+KicksValueLbl.Font = Enum.Font.GothamBold
+KicksValueLbl.TextXAlignment = Enum.TextXAlignment.Left
+KicksValueLbl.Parent = KicksRow
+
+local function formatTime(seconds)
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = math.floor(seconds % 60)
+    return string.format("%02d:%02d:%02d", h, m, s)
+end
+
+RunService.Heartbeat:Connect(function()
+    if antiKickEnabled and antiKickStartTime then
+        UptimeValueLbl.Text = formatTime(tick() - antiKickStartTime)
+        UptimeValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
+        UptimeRS.Color = Color3.fromRGB(70, 46, 140)
+        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
+    else
+        UptimeValueLbl.Text = "00:00:00"
+        UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+        UptimeRS.Color = Color3.fromRGB(36, 36, 36)
+        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+    end
+    KicksValueLbl.Text = tostring(antiKickCount)
+    if antiKickCount > 0 then
+        KicksValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
+        KicksRS.Color = Color3.fromRGB(70, 46, 140)
+        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
+    else
+        KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
+        KicksRS.Color = Color3.fromRGB(36, 36, 36)
+        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+    end
+end)
+
+-- ═══════════════════════════════════════
+--  MINIMIZE / CLOSE
+-- ═══════════════════════════════════════
+MinBtn.MouseButton1Click:Connect(function()
+    Frame.Visible = false
+    StarBtn.Visible = true
+    pulseTween:Play()
+end)
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- ═══════════════════════════════════════
+--  LOOP
+-- ═══════════════════════════════════════
+RunService.Heartbeat:Connect(function()
+    local now = tick()
+    for _, m in ipairs(MACHINES) do
+        if m.enabled then
+            local last = lastRenew[m.tier] or 0
+            if now - last >= RENEW_INTERVAL then
+                lastRenew[m.tier] = now
+                fireRenew(m)
+            end
+        end
+    end
+end)
+
+switchTab("main")
