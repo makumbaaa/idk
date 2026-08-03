@@ -1,9 +1,5 @@
--- idk script - WERSJA DLA LOCALSCRIPT
+-- idk script 
 
--- Sprawdzenie czy działamy w odpowiednim środowisku
-local isLocalScript = true
-
--- Jeśli to LocalScript, niektóre funkcje nie będą działać
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -12,8 +8,10 @@ local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
 
 -- ═══════════════════════════════════════
---  KONFIGURACJA - BEZ ZAPISU DO PLIKU (dla LocalScript)
+--  CONFIGURATION (SAVE/LOAD)
 -- ═══════════════════════════════════════
+local CONFIG_FILE = "idk_script_config.json"
+
 local config = {
     antiKick = false,
     machines = {
@@ -23,15 +21,38 @@ local config = {
     }
 }
 
--- Funkcje zapisu/odczytu - wyłączone dla LocalScript
 local function saveConfig()
-    -- Nie można zapisywać plików z LocalScript
-    -- Można użyć do tego DataStore przez RemoteEvent
+    if writefile then
+        local success, err = pcall(function()
+            writefile(CONFIG_FILE, HttpService:JSONEncode(config))
+        end)
+        if not success then
+            warn("[idk script] Failed to save config: " .. tostring(err))
+        end
+    end
 end
 
 local function loadConfig()
-    -- Nie można odczytywać plików z LocalScript
+    if isfile and readfile and isfile(CONFIG_FILE) then
+        local success, result = pcall(function()
+            return HttpService:JSONDecode(readfile(CONFIG_FILE))
+        end)
+        if success and type(result) == "table" then
+            if type(result.antiKick) == "boolean" then
+                config.antiKick = result.antiKick
+            end
+            if type(result.machines) == "table" then
+                for k, v in pairs(result.machines) do
+                    if type(v) == "boolean" then
+                        config.machines[k] = v
+                    end
+                end
+            end
+        end
+    end
 end
+
+loadConfig()
 
 -- ═══════════════════════════════════════
 --  ANTI-KICK / ANTI-AFK STATE
@@ -54,42 +75,14 @@ local function simulateActivity()
     end
 end
 
--- Sprawdzenie czy LocalPlayer istnieje
-local LocalPlayer = Players.LocalPlayer
-if not LocalPlayer then
-    warn("LocalPlayer not found - script will retry")
-    Players.PlayerAdded:Wait()
-    LocalPlayer = Players.LocalPlayer
-end
-
-LocalPlayer.Idled:Connect(function()
+Players.LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         simulateActivity()
         antiKickCount += 1
     end
 end)
 
--- ═══════════════════════════════════════
---  SPRAWDZENIE CZY ISTNIEJE NETWORK
--- ═══════════════════════════════════════
-local Event = nil
-local eventFound = false
-
--- Próba znalezienia eventu z zabezpieczeniem
-pcall(function()
-    Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
-    if Event then
-        eventFound = true
-    end
-end)
-
-if not eventFound then
-    warn("[idk script] Event 'GardenChanceMachine_AddTime' not found - some features may not work")
-    -- Stwórz dummy event żeby nie było błędów
-    Event = {
-        InvokeServer = function() end
-    }
-end
+local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
 local RENEW_INTERVAL = 55
 local lastRenew = {}
@@ -107,11 +100,12 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "idk_script"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 -- ═══════════════════════════════════════
---  STAR BUTTON
+--  ICON
 -- ═══════════════════════════════════════
+
 local StarBtn = Instance.new("TextButton")
 StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
@@ -121,66 +115,47 @@ StarBtn.Text = ""
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
-Instance.new("UICorner", StarBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", StarBtn).Color = Color3.fromRGB(200, 155, 40)
 
-local StarLabel = Instance.new("TextLabel")
-StarLabel.Size = UDim2.new(1, 0, 1, 0)
-StarLabel.BackgroundTransparency = 1
-StarLabel.Text = "★"
-StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-StarLabel.TextSize = 28
-StarLabel.Font = Enum.Font.GothamBold
-StarLabel.ZIndex = 10
-StarLabel.Parent = StarBtn
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(1, 0)
+Corner.Parent = StarBtn
 
-local pulseTween = TweenService:Create(StarLabel,
-    TweenInfo.new(0.85, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-    { TextColor3 = Color3.fromRGB(255, 220, 80) }
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(200, 155, 40)
+Stroke.Parent = StarBtn
+
+-- Ikona
+local StarIcon = Instance.new("ImageLabel")
+StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
+StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
+StarIcon.BackgroundTransparency = 1
+StarIcon.Image = "rbxassetid://72164665440799" -- ← WSTAW TUTAJ SWOJE ASSET ID
+StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
+StarIcon.ScaleType = Enum.ScaleType.Fit
+StarIcon.ZIndex = 10
+StarIcon.Parent = StarBtn
+
+-- Pulsowanie koloru
+local pulseTween = TweenService:Create(
+    StarIcon,
+    TweenInfo.new(
+        0.85,
+        Enum.EasingStyle.Sine,
+        Enum.EasingDirection.InOut,
+        -1,
+        true
+    ),
+    {
+        ImageColor3 = Color3.fromRGB(255, 220, 80)
+    }
 )
+
+pulseTween:Play()
 
 -- star drag
 local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
-
-StarBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        starDragging  = true
-        starMoved     = false
-        starDragStart = i.Position
-        starPosStart  = StarBtn.Position
-    end
-end)
-
-StarBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        local wasClick = not starMoved
-        starDragging   = false
-        starMoved      = false
-        if wasClick then
-            Frame.Visible        = true
-            StarBtn.Visible      = false
-            pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-        end
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - starDragStart
-        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
-            starMoved = true
-        end
-        if starMoved then
-            StarBtn.Position = UDim2.new(
-                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
-                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
-            )
-        end
-    end
-end)
 
 -- ═══════════════════════════════════════
 --  MAIN FRAME
@@ -310,15 +285,11 @@ local function switchTab(name)
             if n == name then
                 b.BackgroundColor3 = Color3.fromRGB(30, 24, 52)
                 b.TextColor3 = Color3.fromRGB(200, 190, 230)
-                if b.ActiveBar then
-                    b.ActiveBar.Visible = true
-                end
+                b.ActiveBar.Visible = true
             else
                 b.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
                 b.TextColor3 = Color3.fromRGB(70, 70, 70)
-                if b.ActiveBar then
-                    b.ActiveBar.Visible = false
-                end
+                b.ActiveBar.Visible = false
             end
         end
     end
@@ -350,150 +321,9 @@ for i, name in ipairs(TABS) do
     bar.ZIndex = 4
     bar.Parent = btn
     Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
-    btn.ActiveBar = bar
 
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
 end
-
--- ═══════════════════════════════════════
---  MAIN PAGE
--- ═══════════════════════════════════════
-local mainPage = tabPages["main"]
-
-local MainWelcomeLbl = Instance.new("TextLabel")
-MainWelcomeLbl.Size = UDim2.new(1, -16, 0, 24)
-MainWelcomeLbl.Position = UDim2.new(0, 10, 0, 10)
-MainWelcomeLbl.BackgroundTransparency = 1
-MainWelcomeLbl.Text = "idk script v6"
-MainWelcomeLbl.TextColor3 = Color3.fromRGB(200, 190, 230)
-MainWelcomeLbl.TextSize = 16
-MainWelcomeLbl.Font = Enum.Font.GothamBold
-MainWelcomeLbl.TextXAlignment = Enum.TextXAlignment.Left
-MainWelcomeLbl.Parent = mainPage
-
-local MainSubLbl = Instance.new("TextLabel")
-MainSubLbl.Size = UDim2.new(1, -16, 0, 18)
-MainSubLbl.Position = UDim2.new(0, 10, 0, 40)
-MainSubLbl.BackgroundTransparency = 1
-MainSubLbl.Text = "Wybierz zakładkę po lewej, aby skonfigurować"
-MainSubLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-MainSubLbl.TextSize = 10
-MainSubLbl.Font = Enum.Font.Gotham
-MainSubLbl.TextXAlignment = Enum.TextXAlignment.Left
-MainSubLbl.Parent = mainPage
-
--- Info o maszynach
-local InfoFrame = Instance.new("Frame")
-InfoFrame.Size = UDim2.new(1, -16, 0, 120)
-InfoFrame.Position = UDim2.new(0, 10, 0, 70)
-InfoFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-InfoFrame.BorderSizePixel = 0
-InfoFrame.Parent = mainPage
-Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 5)
-
-local InfoStroke = Instance.new("UIStroke")
-InfoStroke.Color = Color3.fromRGB(36, 36, 36)
-InfoStroke.Thickness = 1
-InfoStroke.Parent = InfoFrame
-
-local InfoTitle = Instance.new("TextLabel")
-InfoTitle.Size = UDim2.new(1, -20, 0, 20)
-InfoTitle.Position = UDim2.new(0, 12, 0, 8)
-InfoTitle.BackgroundTransparency = 1
-InfoTitle.Text = "Status maszyn"
-InfoTitle.TextColor3 = Color3.fromRGB(86, 86, 86)
-InfoTitle.TextSize = 10
-InfoTitle.Font = Enum.Font.GothamBold
-InfoTitle.TextXAlignment = Enum.TextXAlignment.Left
-InfoTitle.Parent = InfoFrame
-
-local function createStatusLine(text, yPos)
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(1, -16, 0, 22)
-    line.Position = UDim2.new(0, 8, 0, yPos)
-    line.BackgroundTransparency = 1
-    line.Parent = InfoFrame
-    
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 6, 0, 6)
-    dot.Position = UDim2.new(0, 0, 0.5, -3)
-    dot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    dot.BorderSizePixel = 0
-    dot.Parent = line
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -14, 1, 0)
-    lbl.Position = UDim2.new(0, 14, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-    lbl.TextSize = 10
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = line
-    
-    return { dot = dot, label = lbl }
-end
-
-local hugeStatus = createStatusLine("Huge Luck", 32)
-local titanicStatus = createStatusLine("Titanic Luck", 58)
-local gargantuanStatus = createStatusLine("Gargantuan Luck", 84)
-
--- Aktualizacja statusów na żywo
-RunService.Heartbeat:Connect(function()
-    local colors = {
-        [true] = Color3.fromRGB(110, 80, 220),
-        [false] = Color3.fromRGB(50, 50, 50)
-    }
-    local textColors = {
-        [true] = Color3.fromRGB(132, 112, 198),
-        [false] = Color3.fromRGB(60, 60, 60)
-    }
-    local statusText = {
-        [true] = "ON ✓",
-        [false] = "OFF ✗"
-    }
-    
-    hugeStatus.dot.BackgroundColor3 = colors[MACHINES[1].enabled]
-    hugeStatus.label.TextColor3 = textColors[MACHINES[1].enabled]
-    hugeStatus.label.Text = "Huge Luck: " .. statusText[MACHINES[1].enabled] .. " (" .. MACHINES[1].count .. ")"
-    
-    titanicStatus.dot.BackgroundColor3 = colors[MACHINES[2].enabled]
-    titanicStatus.label.TextColor3 = textColors[MACHINES[2].enabled]
-    titanicStatus.label.Text = "Titanic Luck: " .. statusText[MACHINES[2].enabled] .. " (" .. MACHINES[2].count .. ")"
-    
-    gargantuanStatus.dot.BackgroundColor3 = colors[MACHINES[3].enabled]
-    gargantuanStatus.label.TextColor3 = textColors[MACHINES[3].enabled]
-    gargantuanStatus.label.Text = "Gargantuan Luck: " .. statusText[MACHINES[3].enabled] .. " (" .. MACHINES[3].count .. ")"
-end)
-
--- ═══════════════════════════════════════
---  AUTO FARM PAGE
--- ═══════════════════════════════════════
-local autoFarmPage = tabPages["auto farm"]
-
-local AutoFarmLbl = Instance.new("TextLabel")
-AutoFarmLbl.Size = UDim2.new(1, -16, 0, 24)
-AutoFarmLbl.Position = UDim2.new(0, 10, 0, 10)
-AutoFarmLbl.BackgroundTransparency = 1
-AutoFarmLbl.Text = "Auto Farm"
-AutoFarmLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-AutoFarmLbl.TextSize = 14
-AutoFarmLbl.Font = Enum.Font.GothamBold
-AutoFarmLbl.TextXAlignment = Enum.TextXAlignment.Left
-AutoFarmLbl.Parent = autoFarmPage
-
-local AutoFarmSub = Instance.new("TextLabel")
-AutoFarmSub.Size = UDim2.new(1, -16, 0, 18)
-AutoFarmSub.Position = UDim2.new(0, 10, 0, 38)
-AutoFarmSub.BackgroundTransparency = 1
-AutoFarmSub.Text = "Ta funkcja będzie dostępna wkrótce"
-AutoFarmSub.TextColor3 = Color3.fromRGB(60, 60, 60)
-AutoFarmSub.TextSize = 10
-AutoFarmSub.Font = Enum.Font.Gotham
-AutoFarmSub.TextXAlignment = Enum.TextXAlignment.Left
-AutoFarmSub.Parent = autoFarmPage
 
 -- ═══════════════════════════════════════
 --  EVENT PAGE
@@ -551,18 +381,11 @@ local function updateStatus()
 end
 
 local function fireRenew(machine)
-    if not eventFound then
-        warn("[idk] Event not found - cannot renew: " .. machine.tier)
-        return
-    end
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 600)
     end)
-    if ok then 
-        machine.count += 1 
-    else 
-        warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) 
-    end
+    if ok then machine.count += 1
+    else warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) end
 end
 
 local function makeCheckbox(machine, yPos)
@@ -635,7 +458,7 @@ local function makeCheckbox(machine, yPos)
         Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
         config.machines[machine.tier] = state
-        updateStatus()
+        saveConfig()
     end
 
     RunService.Heartbeat:Connect(function()
@@ -651,6 +474,7 @@ local function makeCheckbox(machine, yPos)
     Btn.MouseButton1Click:Connect(function()
         local s = not machine.enabled
         setActive(s)
+        updateStatus()
         if s then
             fireRenew(machine)
             lastRenew[machine.tier] = tick()
@@ -774,6 +598,7 @@ local function setAntiKickActive(state)
         AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
     end
     config.antiKick = state
+    saveConfig()
 end
 
 local AKBtn = Instance.new("TextButton")
@@ -902,6 +727,47 @@ end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
+end)
+
+-- ═══════════════════════════════════════
+--  STAR CONNECTIONS (down here so Frame exists)
+-- ═══════════════════════════════════════
+StarBtn.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        starDragging  = true
+        starMoved     = false
+        starDragStart = i.Position
+        starPosStart  = StarBtn.Position
+    end
+end)
+
+StarBtn.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local wasClick = not starMoved
+        starDragging   = false
+        starMoved      = false
+        if wasClick then
+            Frame.Visible        = true
+            StarBtn.Visible      = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        end
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - starDragStart
+        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
+            starMoved = true
+        end
+        if starMoved then
+            StarBtn.Position = UDim2.new(
+                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
+                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
+            )
+        end
+    end
 end)
 
 -- ═══════════════════════════════════════
