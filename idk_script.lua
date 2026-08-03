@@ -117,8 +117,8 @@ ScreenGui.Parent = PlayerGui
 local ICON_DECAL_ID = "72164665440799"
 
 local StarBtn = Instance.new("TextButton")
-StarBtn.Size = UDim2.new(0, 52, 0, 52)
-StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
+StarBtn.Size = UDim2.new(0, 64, 0, 64)
+StarBtn.Position = UDim2.new(0, 20, 0.5, -32)
 StarBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 StarBtn.BorderSizePixel = 0
 StarBtn.ClipsDescendants = true
@@ -147,14 +147,19 @@ StarFallback.Parent = StarBtn
 
 -- Ikona
 local StarIcon = Instance.new("ImageLabel")
-StarIcon.Size = UDim2.new(0.86, 0, 0.86, 0)
-StarIcon.Position = UDim2.new(0.07, 0, 0.07, 0)
+StarIcon.Size = UDim2.new(1, 0, 1, 0)
+StarIcon.Position = UDim2.new(0, 0, 0, 0)
 StarIcon.BackgroundTransparency = 1
+StarIcon.ClipsDescendants = true
 StarIcon.Image = "rbxassetid://" .. ICON_DECAL_ID
 StarIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-StarIcon.ScaleType = Enum.ScaleType.Fit
+StarIcon.ScaleType = Enum.ScaleType.Crop
 StarIcon.ZIndex = 10
 StarIcon.Parent = StarBtn
+
+local StarIconCorner = Instance.new("UICorner")
+StarIconCorner.CornerRadius = UDim.new(1, 0)
+StarIconCorner.Parent = StarIcon
 
 local function resolveIconImage()
     local ok, objects = pcall(function()
