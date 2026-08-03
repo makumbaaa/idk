@@ -199,8 +199,13 @@ Frame.Active = true
 Frame.Draggable = true
 Frame.ClipsDescendants = true
 Frame.Parent = ScreenGui
-Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 7)
-Instance.new("UIStroke", Frame).Color = Color3.fromRGB(44, 44, 44)
+local FrameCorner = Instance.new("UICorner", Frame)
+FrameCorner.CornerRadius = UDim.new(0, 7)
+
+local FrameStroke = Instance.new("UIStroke", Frame)
+FrameStroke.Color = Color3.fromRGB(44, 44, 44)
+FrameStroke.Thickness = 1
+FrameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 
 -- ── Title bar ──
 local TitleBar = Instance.new("Frame")
@@ -212,12 +217,13 @@ TitleBar.ZIndex = 2
 TitleBar.Parent = Frame
 
 local AccentLine = Instance.new("Frame")
-AccentLine.Size = UDim2.new(1, 0, 0, 2)
-AccentLine.Position = UDim2.new(0, 0, 1, -2)
+AccentLine.Size = UDim2.new(1, -2, 0, 2)
+AccentLine.Position = UDim2.new(0, 1, 1, -2)
 AccentLine.BackgroundColor3 = Color3.fromRGB(105, 75, 215)
 AccentLine.BorderSizePixel = 0
 AccentLine.ZIndex = 3
 AccentLine.Parent = TitleBar
+Instance.new("UICorner", AccentLine).CornerRadius = UDim.new(0, 1)
 
 local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -90, 1, 0)
