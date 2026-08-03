@@ -1,4 +1,4 @@
--- idk script (poprawiony anti-afk)
+-- idk hub
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -55,7 +55,7 @@ end
 loadConfig()
 
 -- ═══════════════════════════════════════
---  ANTI-KICK / ANTI-AFK (poprawione)
+--  ANTI-KICK / ANTI-AFK 
 -- ═══════════════════════════════════════
 local antiKickEnabled = false
 local antiKickStartTime = nil
@@ -90,7 +90,7 @@ Players.LocalPlayer.Idled:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  MASZYNY (bez zmian)
+--  event luck machine
 -- ═══════════════════════════════════════
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
@@ -104,10 +104,10 @@ local MACHINES = {
 }
 
 -- ═══════════════════════════════════════
---  SCREEN GUI (bez zmian)
+--  SCREEN GUI 
 -- ═══════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "idk_script"
+ScreenGui.Name = "idk_hub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
@@ -223,7 +223,7 @@ local TitleText = Instance.new("TextLabel")
 TitleText.Size = UDim2.new(1, -90, 1, 0)
 TitleText.Position = UDim2.new(0, 14, 0, 0)
 TitleText.BackgroundTransparency = 1
-TitleText.Text = "idk script"
+TitleText.Text = "idk hub"
 TitleText.TextColor3 = Color3.fromRGB(205, 205, 205)
 TitleText.TextSize = 13
 TitleText.Font = Enum.Font.GothamBold
