@@ -1,5 +1,5 @@
--- idk hub (v6) — Obsidian UI Library native rewrite
--- Zachowuje całą logikę oryginału: anti-kick, renewer maszyn, animowany sprite-sheet icon
+-- idk hub (v6) — Obsidian UI Library native
+-- Preserves all original logic: anti-kick, luck machine renewer, animated sprite-sheet icon.
 
 -- ═══════════════════════════════════════
 --  SERVICES & CONSTANTS
@@ -12,13 +12,13 @@ local UIS               = game:GetService("UserInputService")
 local HttpService       = game:GetService("HttpService")
 local ContentProvider   = game:GetService("ContentProvider")
 
--- RemoteEvent resetujący timer AFK
+-- RemoteEvent that resets the AFK idle timer
 local antiAfkRemote = ReplicatedStorage.Network["Idle Tracking: Stop Timer"]
 
--- RemoteEvent / Invoke do maszyn losowania
+-- RemoteFunction/Invoke for the luck machines
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
-local RENEW_INTERVAL = 55  -- sekundy między odnowieniem tej samej maszyny
+local RENEW_INTERVAL = 55  -- seconds between successive renewals of the same machine
 
 -- ═══════════════════════════════════════
 --  STATE
@@ -64,8 +64,8 @@ local function fireRenew(machine)
     end
 end
 
--- Aktualizuje tekst/ kolor statusu maszyn
-local machineStatusLabel  -- set po budowaniu UI
+-- Updates the machine status label text. (Label is assigned after UI build.)
+local machineStatusLabel
 local function updateStatus()
     if not machineStatusLabel then return end
     local anyEnabled = false
@@ -79,7 +79,7 @@ local function updateStatus()
     end
 end
 
--- (Re)aktywacja anti-kick
+-- (Re)activates anti-kick state
 local antiKickStatusLabel
 local function setAntiKickActive(state)
     antiKickEnabled = state
@@ -91,49 +91,52 @@ local function setAntiKickActive(state)
 end
 
 -- ═══════════════════════════════════════
---  LIBRARY (Obsidian UI)
+--  LIBRARY (Obsidian) + ADDONS (ThemeManager, SaveManager)
 -- ═══════════════════════════════════════
-local Library = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/NightForRoblox/Obsidian/refs/heads/main/Library.lua"
-))()
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
 
+local Library
+local ThemeManager
 local SaveManager
-local ok_savemanager, savemanager_err = pcall(function()
-    SaveManager = loadstring(game:HttpGet(
-        "https://raw.githubusercontent.com/NightForRoblox/Obsidian/refs/heads/main/addons/SaveManager.lua"
-    ))()
+
+local ok_lib, err_lib = pcall(function()
+    Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
 end)
-if not ok_savemanager then
-    -- Fallback na fork deividcomsono (API-kompatybilny superset)
-    pcall(function()
-        SaveManager = loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/SaveManager.lua"
-        ))()
-    end)
+if not ok_lib then
+    error("[idk hub] Failed to load Obsidian Library: " .. tostring(err_lib))
 end
+
+pcall(function()
+    ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+end)
+pcall(function()
+    SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+end)
+
+if not ThemeManager then warn("[idk hub] ThemeManager failed to load — themes tab will be missing.") end
+if not SaveManager  then warn("[idk hub] SaveManager failed to load — config will not persist.")    end
 
 local Options = Library.Options
 local Toggles = Library.Toggles
 
--- Okno główne
+-- Main window
 local Window = Library:CreateWindow({
-    Title         = "idk hub",
-    Footer        = "v6",
-    Center        = true,
-    AutoShow      = true,
-    ToggleKeybind = Enum.KeyCode.RightControl,
+    Title  = "idk hub",
+    Footer = "v6",
+    Center = true,
+    AutoShow = true,
 })
 
 -- ═══════════════════════════════════════
---  TABS (5 zachowanych z oryginału)
+--  TABS (5 preserved from the original)
 -- ═══════════════════════════════════════
-local MainTab     = Window:AddTab("main",       "home")
-local AutoFarmTab = Window:AddTab("auto farm",  "tractor")
-local AutoHatchTab= Window:AddTab("auto hatch", "egg")
-local EventTab    = Window:AddTab("event",      "calendar")
-local MiscTab     = Window:AddTab("misc",       "shield")
+local MainTab      = Window:AddTab("main",       "home")
+local AutoFarmTab  = Window:AddTab("auto farm",  "tractor")
+local AutoHatchTab = Window:AddTab("auto hatch", "egg")
+local EventTab     = Window:AddTab("event",      "calendar")
+local MiscTab      = Window:AddTab("misc",       "shield")
 
--- Placeholdery dla pustych tabów
+-- Placeholder content for empty tabs
 do
     local lb = MainTab:AddLeftGroupbox("main")
     lb:AddLabel("coming soon", true)
@@ -153,20 +156,20 @@ end
 local machineRenewBox  = EventTab:AddLeftGroupbox("luck machine renewer")
 local machineStatusBox = EventTab:AddRightGroupbox("status")
 
--- Status tekstowy (aktualizowany przez updateStatus/Heartbeat)
+-- Status label (updated by updateStatus / Heartbeat)
 machineStatusLabel = machineStatusBox:AddLabel("● idle")
 
--- Trzymamy referencje do label-liczników, by Heartbeat je aktualizował
+-- Save label handles per machine so the Heartbeat loop can update them
 local renewLabels = {}
 
 for _, m in ipairs(MACHINES) do
     local toggle = machineRenewBox:AddToggle("Machine_" .. m.tier, {
         Text    = m.label,
         Default = false,
-        Tooltip = "Co 55s odnawia maszynę '" .. m.tier .. "' (+600s)",
+        Tooltip = "Renews '" .. m.tier .. "' machine every 55s (+600s)",
     })
 
-    -- Licznik odnowień
+    -- Renewal counter
     local counter = machineRenewBox:AddLabel("Renews: 0")
     renewLabels[m.tier] = counter
 
@@ -181,7 +184,7 @@ for _, m in ipairs(MACHINES) do
 end
 
 -- ═══════════════════════════════════════
---  MISC TAB — Anti-Kick + Uptime/Kicks
+--  MISC TAB — Anti-Kick + Uptime/Kicks + Minimize/Close
 -- ═══════════════════════════════════════
 local antiKickBox = MiscTab:AddLeftGroupbox("anti-kick")
 local uptimeBox   = MiscTab:AddRightGroupbox("uptime")
@@ -191,39 +194,37 @@ antiKickStatusLabel = antiKickBox:AddLabel("Status: disabled")
 local antiKickToggle = antiKickBox:AddToggle("AntiKick", {
     Text    = "Anti-Kick",
     Default = false,
-    Tooltip = "Resetuje timer bezczynności co 30s + na Idled",
+    Tooltip = "Resets the idle timer every 30s and on Idled",
 })
 antiKickToggle:OnChanged(function(value)
     setAntiKickActive(value)
 end)
 
--- Przyciski minimize/close (par with oryginałem)
+-- Minimize + close buttons (parity with the original GUI)
 antiKickBox:AddButton({
     Text = "Minimize (hide UI)",
     Func = function()
         Library:Toggle(false)
-        StarBtn.Visible = true
-        pulseTween:Play()
     end,
-    Tooltip = "Ukrywa okno i pokazuje animowaną ikonę",
+    Tooltip = "Hides the window and shows the animated icon",
 })
 
 antiKickBox:AddButton({
-    Text     = "Close (unload)",
-    Func     = function() Library:Unload() end,
-    Risky    = true,
-    Tooltip  = "Całkowicie zamyka skrypt",
+    Text    = "Close (unload)",
+    Func    = function() Library:Unload() end,
+    Risky   = true,
+    Tooltip = "Completely unloads the script",
 })
 
 local uptimeLabel = uptimeBox:AddLabel("Uptime: 00:00:00")
 local kicksLabel   = uptimeBox:AddLabel("Kicks prevented: 0")
 
 -- ═══════════════════════════════════════
---  ICON — animowany sprite-sheet (zachowany z działającej wersji)
+--  ICON — animated sprite-sheet (preserved from the working version)
 -- ═══════════════════════════════════════
 local ICON_DECAL_ID = "91252878133096"
 
--- Sprite-sheet 1024x1024, siatka 4x4 -> 16 klatek 256x256 px
+-- Sprite-sheet 1024x1024, 4x4 grid -> 16 frames of 256x256 px each
 local SPRITE_COLS   = 4
 local SPRITE_ROWS   = 4
 local FRAME_W       = 256
@@ -237,6 +238,7 @@ ScreenGui.Name = "idk_hub_icon"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.IgnoreGuiInset = true
+ScreenGui.DisplayOrder = 999999  -- always render above Obsidian's ScreenGui
 
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 local oldGui = PlayerGui:FindFirstChild(ScreenGui.Name)
@@ -275,7 +277,7 @@ local function showFrame(idx)
     StarBtn.ImageRectOffset = Vector2.new(col * FRAME_W, row * FRAME_H)
 end
 
--- Resolve decala -> jego Texture (zapobiega podwójnemu obrazkowi)
+-- Resolve the Decal -> its Texture (prevents the double-image bug)
 local function resolveIconImage()
     local ok, objects = pcall(function()
         return game:GetObjects("rbxassetid://" .. ICON_DECAL_ID)
@@ -295,7 +297,7 @@ local function resolveIconImage()
 end
 task.spawn(resolveIconImage)
 
--- Pętla animacji sprite-sheetu (tylko gdy widoczny)
+-- Sprite-sheet animation loop (only renders while visible)
 task.spawn(function()
     while true do
         if StarBtn.Visible then
@@ -306,7 +308,7 @@ task.spawn(function()
     end
 end)
 
--- Pulsowanie obramowania ikony
+-- Border pulse tween (played only when the icon is showing)
 local pulseTween = TweenService:Create(
     Stroke,
     TweenInfo.new(
@@ -320,10 +322,9 @@ local pulseTween = TweenService:Create(
         Color = Color3.fromRGB(125, 125, 125)
     }
 )
--- pulseTween gra tylko gdy ikona widoczna (uruchamiany przez minimize)
 
 -- ═══════════════════════════════════════
---  STAR CONNECTIONS (drag + klik = pokaż okno)
+--  STAR CONNECTIONS (drag + click = unhide window)
 -- ═══════════════════════════════════════
 local starDragging = false
 local starMoved    = false
@@ -344,11 +345,8 @@ StarBtn.InputEnded:Connect(function(i)
         starDragging   = false
         starMoved      = false
         if wasClick then
-            -- Pokaż z powrotem okno Obsidian
+            -- Show the Obsidian window back again
             Library:Toggle(true)
-            StarBtn.Visible = false
-            pulseTween:Cancel()
-            Stroke.Color = Color3.fromRGB(62, 62, 62)
         end
     end
 end)
@@ -368,11 +366,27 @@ UIS.InputChanged:Connect(function(i)
     end
 end)
 
+-- Sync StarBtn visibility with Library.Toggled on every frame.
+-- The icon appears whenever the window is hidden (via RightCtrl keybind OR
+-- the "Minimize (hide UI)" button), and hides the moment it's restored.
+RunService.Heartbeat:Connect(function()
+    if not Library or Library.Unloaded then return end
+    local libraryHidden = (Library.Toggled == false)
+    if libraryHidden and not StarBtn.Visible then
+        StarBtn.Visible = true
+        pulseTween:Play()
+    elseif (not libraryHidden) and StarBtn.Visible then
+        StarBtn.Visible = false
+        pulseTween:Cancel()
+        Stroke.Color = Color3.fromRGB(62, 62, 62)
+    end
+end)
+
 -- ═══════════════════════════════════════
 --  LOOPS (anti-kick + renewer + display updater)
 -- ═══════════════════════════════════════
 
--- Anti-kick: cykliczne resetowanie timera co 30s
+-- Anti-kick: cyclic idle-timer reset every 30s
 task.spawn(function()
     while true do
         resetIdleTimer()
@@ -380,7 +394,7 @@ task.spawn(function()
     end
 end)
 
--- Dodatkowe zabezpieczenie Idled
+-- Extra safety net on Idled
 Players.LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         resetIdleTimer()
@@ -388,12 +402,12 @@ Players.LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- Heartbeat: renewer + aktualizacja labeli (rate-limit do ~5 Hz)
+-- Single Heartbeat: renewer + label updates (rate-limited to ~5 Hz)
 local lastDisplayUpdate = 0
 RunService.Heartbeat:Connect(function()
     local now = tick()
 
-    -- Renewer maszyn
+    -- Machine renewer loop
     for _, m in ipairs(MACHINES) do
         if m.enabled then
             local last = lastRenew[m.tier] or 0
@@ -404,11 +418,11 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Aktualizacja UI ~5 razy na sekundę
+    -- UI updates throttled to ~5 times per second
     if now - lastDisplayUpdate >= 0.2 then
         lastDisplayUpdate = now
 
-        -- Liczniki renewals
+        -- Renewal counters
         for _, m in ipairs(MACHINES) do
             local lbl = renewLabels[m.tier]
             if lbl then
@@ -439,119 +453,101 @@ end)
 --  CLEANUP
 -- ═══════════════════════════════════════
 Library:OnUnload(function()
-    -- StarBtn + ScreenGui są usuwane razem przez ScreenGui:Destroy()
+    -- StarBtn + ScreenGui are destroyed together via ScreenGui:Destroy()
     pcall(function() ScreenGui:Destroy() end)
 end)
 
 -- ═══════════════════════════════════════
---  UI SETTINGS TAB (z oficjalnego Example.lua Obsidian)
+--  UI SETTINGS TAB (mirrors the official Obsidian Example.lua)
 -- ═══════════════════════════════════════
-do
-    local SettingsTab = Window:AddTab("ui settings", "settings")
+local SettingsTab = Window:AddTab("UI Settings", "settings")
 
-    -- ── lewy groupbox: Theme Manager ──
-    local ThemeBox = SettingsTab:AddLeftGroupbox("Theme")
+-- ── "Menu" groupbox ──
+local MenuGroup = SettingsTab:AddLeftGroupbox("Menu", "wrench")
 
-    local ThemeManager
-    pcall(function()
-        ThemeManager = loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/NightForRoblox/Obsidian/refs/heads/main/addons/ThemeManager.lua"
-        ))()
-    end)
-    if not ThemeManager then
-        pcall(function()
-            ThemeManager = loadstring(game:HttpGet(
-                "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
-            ))()
-        end)
-    end
+MenuGroup:AddToggle("KeybindMenuOpen", {
+    Default  = Library.KeybindFrame.Visible,
+    Text     = "Open Keybind Menu",
+    Callback = function(value)
+        Library.KeybindFrame.Visible = value
+    end,
+})
 
-    if ThemeManager then
-        pcall(function() ThemeManager:SetLibrary(Library) end)
-        pcall(function() ThemeManager:SetFolder("idk_hub") end)
-        pcall(function() ThemeManager:ApplyToTheme() end)
+MenuGroup:AddToggle("ShowCustomCursor", {
+    Text     = "Custom Cursor",
+    Default  = Library.ShowCustomCursor,
+    Callback = function(Value)
+        Library.ShowCustomCursor = Value
+    end,
+})
 
-        ThemeBox:AddLabel("Theme color", true)
-        local colorPicker = ThemeBox:AddLabel("Accent color")
-        colorPicker:AddColorPicker("ThemeColor", {
-            Default = Color3.fromRGB(105, 75, 215),
-            Title   = "Accent color",
-            Callback = function(c)
-                Library.Scheme.AccentColor = c
-            end,
-        })
+MenuGroup:AddDropdown("NotificationSide", {
+    Values   = { "Left", "Right" },
+    Default  = "Right",
+    Text     = "Notification Side",
+    Callback = function(Value)
+        Library:SetNotifySide(Value)
+    end,
+})
 
-        ThemeBox:AddButton({
-            Text  = "Save theme",
-            Func  = function() pcall(function() ThemeManager:SaveTheme("default") end) end,
-        })
-        ThemeBox:AddButton({
-            Text  = "Load theme",
-            Func  = function() pcall(function() ThemeManager:LoadTheme("default") end) end,
-        })
-        ThemeBox:AddButton({
-            Text  = "Open theme picker",
-            Func  = function() pcall(function() ThemeManager:ShowWindow() end) end,
-        })
-    else
-        ThemeBox:AddLabel("ThemeManager nie załadował się", true)
-    end
+MenuGroup:AddDropdown("DPIDropdown", {
+    Values   = { "50%", "75%", "100%", "125%", "150%", "175%", "200%" },
+    Default  = "100%",
+    Text     = "DPI Scale",
+    Callback = function(Value)
+        Value = Value:gsub("%%", "")
+        local DPI = tonumber(Value)
+        Library:SetDPIScale(DPI)
+    end,
+})
 
-    -- ── prawy groupbox: Window settings ──
-    local WindowBox = SettingsTab:AddRightGroupbox("Window")
+MenuGroup:AddSlider("UICornerSlider", {
+    Text     = "Corner Radius",
+    Default  = Library.CornerRadius,
+    Min      = 0,
+    Max      = 20,
+    Rounding = 0,
+    Callback = function(value)
+        Window:SetCornerRadius(value)
+    end,
+})
 
-    WindowBox:AddSlider("CornerRadius", {
-        Text     = "Corner radius",
-        Default  = 4,
-        Min      = 0,
-        Max      = 12,
-        Rounding = 0,
-        Suffix   = "px",
-        Callback = function(v) Window:SetCornerRadius(v) end,
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu bind")
+    :AddKeyPicker("MenuKeybind", {
+        Default = "RightShift",
+        NoUI    = true,
+        Text    = "Menu keybind",
     })
 
-    WindowBox:AddSlider("DPI Scale", {
-        Text     = "DPI scale",
-        Default  = 100,
-        Min      = 50,
-        Max      = 200,
-        Rounding = 0,
-        Suffix   = "%",
-        Callback = function(v) Library:SetDPIScale(v / 100) end,
-    })
+MenuGroup:AddButton("Unload", function()
+    Library:Unload()
+end)
 
-    WindowBox:AddToggle("ShowCustomCursor", {
-        Text     = "Custom cursor",
-        Default  = true,
-        Callback = function(v) Library.ShowCustomCursor = v end,
-    })
+-- Wire the keypicker back into the library so RightShift toggles the menu
+Library.ToggleKeybind = Options.MenuKeybind
 
-    WindowBox:AddButton({
-        Text  = "Open theme picker",
-        Func  = function()
-            if ThemeManager then ThemeManager:ShowWindow() end
-        end,
-    })
-end
-
--- ═══════════════════════════════════════
---  SAVEMANAGER (config persistence)
--- ═══════════════════════════════════════
-if SaveManager then
+-- ── Theme & Save managers auto-build Themes / Theme list / Configuration groupboxes on this tab ──
+if ThemeManager and SaveManager then
+    ThemeManager:SetLibrary(Library)
     SaveManager:SetLibrary(Library)
-    SaveManager:SetIgnoreIndexes({})  -- wszystkie toggle/idx powinny być zapisywane
+
+    SaveManager:IgnoreThemeSettings()                   -- don't double-save UI Settings
+    SaveManager:SetIgnoreIndexes({ "MenuKeybind" })      -- keybind should not persist
+    ThemeManager:SetFolder("idk_hub")
     SaveManager:SetFolder("idk_hub")
-    -- Configuration tab z save/load slots + autoload (BuildConfigTab jest w tej
-    -- wersji SaveManagera; fallback do BuildConfigGroupbox dla starszych wersji).
-    local ConfigTab = Window:AddTab("config", "save")
-    local ok1 = pcall(function() SaveManager:BuildConfigTab(ConfigTab) end)
-    if not ok1 then
-        pcall(function() SaveManager:BuildConfigGroupbox(ConfigTab) end)
-    end
-    local ok2 = pcall(function() SaveManager:LoadAutoloadConfig() end)
-    if not ok2 then
-        warn("[idk hub] SaveManager:LoadAutoloadConfig zawiódł.")
-    end
-else
-    warn("[idk hub] SaveManager nie załadował się — config nie będzie się zapisywał.")
+
+    SaveManager:BuildConfigSection(SettingsTab)          -- adds "Configuration" groupbox
+    ThemeManager:ApplyToTab(SettingsTab)                  -- adds "Themes" + "Theme list" groupboxes
+
+    SaveManager:LoadAutoloadConfig()
+elseif ThemeManager and not SaveManager then
+    ThemeManager:SetLibrary(Library)
+    ThemeManager:SetFolder("idk_hub")
+    ThemeManager:ApplyToTab(SettingsTab)
+elseif SaveManager and not ThemeManager then
+    SaveManager:SetLibrary(Library)
+    SaveManager:SetFolder("idk_hub")
+    SaveManager:BuildConfigSection(SettingsTab)
+    SaveManager:LoadAutoloadConfig()
 end
