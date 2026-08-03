@@ -120,9 +120,16 @@ end
 ScreenGui.Parent = PlayerGui
 
 -- ═══════════════════════════════════════
---  ICON (bez zmian)
+--  ICON (animowany sprite-sheet 4x4 = 16 klatek)
 -- ═══════════════════════════════════════
-local ICON_DECAL_ID = "72164665440799"
+local ICON_DECAL_ID = "91252878133096"
+
+-- 4x4 siatka -> 16 klatek
+local SPRITE_COLS   = 4
+local SPRITE_ROWS   = 4
+local SPRITE_FRAMES = SPRITE_COLS * SPRITE_ROWS
+local FRAME_TIME    = 0.1   -- sekundy na klatkę (10 FPS)
+local currentFrame  = 0     -- 0..15
 
 local StarBtn = Instance.new("ImageButton")
 StarBtn.Size = UDim2.new(0, 76, 0, 76)
@@ -132,11 +139,15 @@ StarBtn.BorderSizePixel = 0
 StarBtn.ClipsDescendants = true
 StarBtn.Image = "rbxassetid://" .. ICON_DECAL_ID
 StarBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
-StarBtn.ScaleType = Enum.ScaleType.Crop
+StarBtn.ScaleType = Enum.ScaleType.Slice
 StarBtn.AutoButtonColor = false
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
+
+-- Pokaż jedną klatkę z sheetu (1/4 szerokości, 1/4 wysokości)
+StarBtn.ImageRectSize   = Vector2.new(1 / SPRITE_COLS, 1 / SPRITE_ROWS)
+StarBtn.ImageRectOffset = Vector2.new(0, 0)
 
 local Corner = Instance.new("UICorner")
 Corner.CornerRadius = UDim.new(1, 0)
@@ -144,9 +155,21 @@ Corner.Parent = StarBtn
 
 local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(62, 62, 62)
+Stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 Stroke.Parent = StarBtn
 
+-- Przesuwa wycinek na klatkę idx w siatce 4x4
+local function showFrame(idx)
+    local col = idx % SPRITE_COLS
+    local row = math.floor(idx / SPRITE_COLS) % SPRITE_ROWS
+    StarBtn.ImageRectOffset = Vector2.new(
+        col * (1 / SPRITE_COLS),
+        row * (1 / SPRITE_ROWS)
+    )
+end
+
 local function resolveIconImage()
+    -- Rozpakuj docelową teksturę, gdy asset jest Decalem/MeshPartem
     local ok, objects = pcall(function()
         return game:GetObjects("rbxassetid://" .. ICON_DECAL_ID)
     end)
@@ -158,12 +181,26 @@ local function resolveIconImage()
         end
     end
 
+    -- Po zmianie Image wycinek nadal obowiązuje — reinstalujemy bieżącą klatkę
+    showFrame(currentFrame)
+
     pcall(function()
         ContentProvider:PreloadAsync({ StarBtn })
     end)
 end
 
 task.spawn(resolveIconImage)
+
+-- Pętla animacji sprite-sheetu (tylko gdy przycisk widoczny)
+task.spawn(function()
+    while true do
+        if StarBtn.Visible then
+            currentFrame = (currentFrame + 1) % SPRITE_FRAMES
+            showFrame(currentFrame)
+        end
+        task.wait(FRAME_TIME)
+    end
+end)
 
 -- Pulsowanie obramowania
 local pulseTween = TweenService:Create(
