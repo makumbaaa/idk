@@ -137,6 +137,7 @@ local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
 
+-- star connections (down here so Frame exists)
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         starDragging  = true
@@ -152,14 +153,10 @@ StarBtn.InputEnded:Connect(function(i)
         starDragging   = false
         starMoved      = false
         if wasClick then
-            task.defer(function()
-                if Frame then
-                    Frame.Visible        = true
-                    StarBtn.Visible      = false
-                    pulseTween:Cancel()
-                    StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-                end
-            end)
+            Frame.Visible        = true
+            StarBtn.Visible      = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
         end
     end
 end)
