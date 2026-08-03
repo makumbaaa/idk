@@ -103,8 +103,9 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 -- ═══════════════════════════════════════
---  STAR BUTTON
+--  ICON
 -- ═══════════════════════════════════════
+
 local StarBtn = Instance.new("TextButton")
 StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
@@ -114,23 +115,42 @@ StarBtn.Text = ""
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
-Instance.new("UICorner", StarBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", StarBtn).Color = Color3.fromRGB(200, 155, 40)
 
-local StarLabel = Instance.new("TextLabel")
-StarLabel.Size = UDim2.new(1, 0, 1, 0)
-StarLabel.BackgroundTransparency = 1
-StarLabel.Text = "★"
-StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-StarLabel.TextSize = 28
-StarLabel.Font = Enum.Font.GothamBold
-StarLabel.ZIndex = 10
-StarLabel.Parent = StarBtn
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(1, 0)
+Corner.Parent = StarBtn
 
-local pulseTween = TweenService:Create(StarLabel,
-    TweenInfo.new(0.85, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-    { TextColor3 = Color3.fromRGB(255, 220, 80) }
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(200, 155, 40)
+Stroke.Parent = StarBtn
+
+-- Ikona
+local StarIcon = Instance.new("ImageLabel")
+StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
+StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
+StarIcon.BackgroundTransparency = 1
+StarIcon.Image = "rbxassetid://72164665440799" -- ← WSTAW TUTAJ SWOJE ASSET ID
+StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
+StarIcon.ScaleType = Enum.ScaleType.Fit
+StarIcon.ZIndex = 10
+StarIcon.Parent = StarBtn
+
+-- Pulsowanie koloru
+local pulseTween = TweenService:Create(
+    StarIcon,
+    TweenInfo.new(
+        0.85,
+        Enum.EasingStyle.Sine,
+        Enum.EasingDirection.InOut,
+        -1,
+        true
+    ),
+    {
+        ImageColor3 = Color3.fromRGB(255, 220, 80)
+    }
 )
+
+pulseTween:Play()
 
 -- star drag
 local starDragging = false
