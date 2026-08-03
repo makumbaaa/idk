@@ -444,15 +444,114 @@ Library:OnUnload(function()
 end)
 
 -- ═══════════════════════════════════════
+--  UI SETTINGS TAB (z oficjalnego Example.lua Obsidian)
+-- ═══════════════════════════════════════
+do
+    local SettingsTab = Window:AddTab("ui settings", "settings")
+
+    -- ── lewy groupbox: Theme Manager ──
+    local ThemeBox = SettingsTab:AddLeftGroupbox("Theme")
+
+    local ThemeManager
+    pcall(function()
+        ThemeManager = loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/NightForRoblox/Obsidian/refs/heads/main/addons/ThemeManager.lua"
+        ))()
+    end)
+    if not ThemeManager then
+        pcall(function()
+            ThemeManager = loadstring(game:HttpGet(
+                "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/addons/ThemeManager.lua"
+            ))()
+        end)
+    end
+
+    if ThemeManager then
+        pcall(function() ThemeManager:SetLibrary(Library) end)
+        pcall(function() ThemeManager:SetFolder("idk_hub") end)
+        pcall(function() ThemeManager:ApplyToTheme() end)
+
+        ThemeBox:AddLabel("Theme color", true)
+        local colorPicker = ThemeBox:AddLabel("Accent color")
+        colorPicker:AddColorPicker("ThemeColor", {
+            Default = Color3.fromRGB(105, 75, 215),
+            Title   = "Accent color",
+            Callback = function(c)
+                Library.Scheme.AccentColor = c
+            end,
+        })
+
+        ThemeBox:AddButton({
+            Text  = "Save theme",
+            Func  = function() pcall(function() ThemeManager:SaveTheme("default") end) end,
+        })
+        ThemeBox:AddButton({
+            Text  = "Load theme",
+            Func  = function() pcall(function() ThemeManager:LoadTheme("default") end) end,
+        })
+        ThemeBox:AddButton({
+            Text  = "Open theme picker",
+            Func  = function() pcall(function() ThemeManager:ShowWindow() end) end,
+        })
+    else
+        ThemeBox:AddLabel("ThemeManager nie załadował się", true)
+    end
+
+    -- ── prawy groupbox: Window settings ──
+    local WindowBox = SettingsTab:AddRightGroupbox("Window")
+
+    WindowBox:AddSlider("CornerRadius", {
+        Text     = "Corner radius",
+        Default  = 4,
+        Min      = 0,
+        Max      = 12,
+        Rounding = 0,
+        Suffix   = "px",
+        Callback = function(v) Window:SetCornerRadius(v) end,
+    })
+
+    WindowBox:AddSlider("DPI Scale", {
+        Text     = "DPI scale",
+        Default  = 100,
+        Min      = 50,
+        Max      = 200,
+        Rounding = 0,
+        Suffix   = "%",
+        Callback = function(v) Library:SetDPIScale(v / 100) end,
+    })
+
+    WindowBox:AddToggle("ShowCustomCursor", {
+        Text     = "Custom cursor",
+        Default  = true,
+        Callback = function(v) Library.ShowCustomCursor = v end,
+    })
+
+    WindowBox:AddButton({
+        Text  = "Open theme picker",
+        Func  = function()
+            if ThemeManager then ThemeManager:ShowWindow() end
+        end,
+    })
+end
+
+-- ═══════════════════════════════════════
 --  SAVEMANAGER (config persistence)
 -- ═══════════════════════════════════════
 if SaveManager then
     SaveManager:SetLibrary(Library)
     SaveManager:SetIgnoreIndexes({})  -- wszystkie toggle/idx powinny być zapisywane
-    -- Configuration tab z save/load slots + autoload
+    SaveManager:SetFolder("idk_hub")
+    -- Configuration tab z save/load slots + autoload (BuildConfigTab jest w tej
+    -- wersji SaveManagera; fallback do BuildConfigGroupbox dla starszych wersji).
     local ConfigTab = Window:AddTab("config", "save")
-    SaveManager:BuildConfigGroupbox(ConfigTab)
-    SaveManager:LoadAutoloadConfig()
+    local ok1 = pcall(function() SaveManager:BuildConfigTab(ConfigTab) end)
+    if not ok1 then
+        pcall(function() SaveManager:BuildConfigGroupbox(ConfigTab) end)
+    end
+    local ok2 = pcall(function() SaveManager:LoadAutoloadConfig() end)
+    if not ok2 then
+        warn("[idk hub] SaveManager:LoadAutoloadConfig zawiódł.")
+    end
 else
     warn("[idk hub] SaveManager nie załadował się — config nie będzie się zapisywał.")
 end
