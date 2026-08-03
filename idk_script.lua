@@ -62,14 +62,12 @@ local antiKickEnabled = false
 local antiKickStartTime = nil
 local antiKickCount = 0
 
--- Improved Anti-Kick for better compatibility
 local function simulateActivity()
     local success = pcall(function()
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new())
     end)
     if not success then
-        -- Fallback for some executors
         local vu = game:GetService("VirtualUser")
         vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
         task.wait(1)
@@ -117,7 +115,6 @@ StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
 Instance.new("UICorner", StarBtn).CornerRadius = UDim.new(1, 0)
-
 Instance.new("UIStroke", StarBtn).Color = Color3.fromRGB(200, 155, 40)
 
 local StarLabel = Instance.new("TextLabel")
@@ -135,27 +132,47 @@ local pulseTween = TweenService:Create(StarLabel,
     { TextColor3 = Color3.fromRGB(255, 220, 80) }
 )
 
--- star drag
-local starDragging, starDragStart, starPosStart = false, nil, nil
+-- ── star drag — tracks movement so clicks still fire ──
+local starDragging = false
+local starMoved    = false   -- KEY: did mouse actually move?
+local starDragStart, starPosStart
+
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         starDragging = true
+        starMoved    = false
         starDragStart = i.Position
-        starPosStart = StarBtn.Position
+        starPosStart  = StarBtn.Position
     end
 end)
+
 StarBtn.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         starDragging = false
+        -- if mouse never moved it's a clean click → restore
+        if not starMoved then
+            Frame.Visible  = true
+            StarBtn.Visible = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        end
+        starMoved = false
     end
 end)
+
 UIS.InputChanged:Connect(function(i)
     if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
         local d = i.Position - starDragStart
-        StarBtn.Position = UDim2.new(
-            starPosStart.X.Scale, starPosStart.X.Offset + d.X,
-            starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
-        )
+        -- only count as drag if moved more than 4px
+        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
+            starMoved = true
+        end
+        if starMoved then
+            StarBtn.Position = UDim2.new(
+                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
+                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
+            )
+        end
     end
 end)
 
@@ -244,7 +261,6 @@ Sidebar.BorderSizePixel = 0
 Sidebar.ZIndex = 2
 Sidebar.Parent = Frame
 
--- right border
 local SideLine = Instance.new("Frame")
 SideLine.Size = UDim2.new(0, 1, 1, 0)
 SideLine.Position = UDim2.new(1, -1, 0, 0)
@@ -298,7 +314,6 @@ local function switchTab(name)
     end
 end
 
--- build tab buttons
 local tabYPositions = { 12, 52, 92, 132 }
 for i, name in ipairs(TABS) do
     local btn = Instance.new("TextButton")
@@ -461,8 +476,6 @@ local function makeCheckbox(machine, yPos)
         RS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
         Row.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
-        
-        -- Save settings
         config.machines[machine.tier] = state
         saveConfig()
     end
@@ -487,7 +500,6 @@ local function makeCheckbox(machine, yPos)
         end
     end)
 
-    -- Apply initial loaded state
     if config.machines[machine.tier] then
         setActive(true)
         updateStatus()
@@ -503,7 +515,6 @@ makeCheckbox(MACHINES[3], 136)
 -- ═══════════════════════════════════════
 local miscPage = tabPages["misc"]
 
--- section label
 local MiscSectionLbl = Instance.new("TextLabel")
 MiscSectionLbl.Size = UDim2.new(1, -16, 0, 18)
 MiscSectionLbl.Position = UDim2.new(0, 10, 0, 8)
@@ -515,7 +526,6 @@ MiscSectionLbl.Font = Enum.Font.Gotham
 MiscSectionLbl.TextXAlignment = Enum.TextXAlignment.Left
 MiscSectionLbl.Parent = miscPage
 
--- status dot row
 local AKDotRow = Instance.new("Frame")
 AKDotRow.Size = UDim2.new(1, -16, 0, 18)
 AKDotRow.Position = UDim2.new(0, 10, 0, 28)
@@ -541,7 +551,6 @@ AKStatusLbl.Font = Enum.Font.Gotham
 AKStatusLbl.TextXAlignment = Enum.TextXAlignment.Left
 AKStatusLbl.Parent = AKDotRow
 
--- anti-kick toggle row
 local AKRow = Instance.new("Frame")
 AKRow.Size = UDim2.new(1, -16, 0, 36)
 AKRow.Position = UDim2.new(0, 8, 0, 52)
@@ -596,7 +605,6 @@ local function setAntiKickActive(state)
     AKLbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
     AKRS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
     AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
-
     if state then
         antiKickStartTime = tick()
         AKStatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
@@ -608,8 +616,6 @@ local function setAntiKickActive(state)
         AKStatusLbl.Text = "disabled"
         AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
     end
-    
-    -- Save settings
     config.antiKick = state
     saveConfig()
 end
@@ -619,17 +625,15 @@ AKBtn.Size = UDim2.new(1, 0, 1, 0)
 AKBtn.BackgroundTransparency = 1
 AKBtn.Text = ""
 AKBtn.Parent = AKRow
-
 AKBtn.MouseButton1Click:Connect(function()
     setAntiKickActive(not antiKickEnabled)
 end)
 
--- Apply initial loaded state
 if config.antiKick then
     setAntiKickActive(true)
 end
 
--- ── Uptime display ──
+-- uptime
 local UptimeRow = Instance.new("Frame")
 UptimeRow.Size = UDim2.new(1, -16, 0, 44)
 UptimeRow.Position = UDim2.new(0, 8, 0, 98)
@@ -642,15 +646,6 @@ local UptimeRS = Instance.new("UIStroke")
 UptimeRS.Color = Color3.fromRGB(36, 36, 36)
 UptimeRS.Thickness = 1
 UptimeRS.Parent = UptimeRow
-
-local UptimeIcon = Instance.new("TextLabel")
-UptimeIcon.Size = UDim2.new(0, 20, 0, 20)
-UptimeIcon.Position = UDim2.new(0, 10, 0.5, -10)
-UptimeIcon.BackgroundTransparency = 1
-UptimeIcon.Text = "⏱"
-UptimeIcon.TextSize = 14
-UptimeIcon.Font = Enum.Font.GothamBold
-UptimeIcon.Parent = UptimeRow
 
 local UptimeTitleLbl = Instance.new("TextLabel")
 UptimeTitleLbl.Size = UDim2.new(1, -40, 0, 16)
@@ -674,7 +669,6 @@ UptimeValueLbl.Font = Enum.Font.GothamBold
 UptimeValueLbl.TextXAlignment = Enum.TextXAlignment.Left
 UptimeValueLbl.Parent = UptimeRow
 
--- ── Kicks prevented display ──
 local KicksRow = Instance.new("Frame")
 KicksRow.Size = UDim2.new(1, -16, 0, 44)
 KicksRow.Position = UDim2.new(0, 8, 0, 150)
@@ -687,15 +681,6 @@ local KicksRS = Instance.new("UIStroke")
 KicksRS.Color = Color3.fromRGB(36, 36, 36)
 KicksRS.Thickness = 1
 KicksRS.Parent = KicksRow
-
-local KicksIcon = Instance.new("TextLabel")
-KicksIcon.Size = UDim2.new(0, 20, 0, 20)
-KicksIcon.Position = UDim2.new(0, 10, 0.5, -10)
-KicksIcon.BackgroundTransparency = 1
-KicksIcon.Text = "🛡"
-KicksIcon.TextSize = 14
-KicksIcon.Font = Enum.Font.GothamBold
-KicksIcon.Parent = KicksRow
 
 local KicksTitleLbl = Instance.new("TextLabel")
 KicksTitleLbl.Size = UDim2.new(1, -40, 0, 16)
@@ -719,7 +704,6 @@ KicksValueLbl.Font = Enum.Font.GothamBold
 KicksValueLbl.TextXAlignment = Enum.TextXAlignment.Left
 KicksValueLbl.Parent = KicksRow
 
--- update uptime & kick count every frame
 local function formatTime(seconds)
     local h = math.floor(seconds / 3600)
     local m = math.floor((seconds % 3600) / 60)
@@ -739,7 +723,6 @@ RunService.Heartbeat:Connect(function()
         UptimeRS.Color = Color3.fromRGB(36, 36, 36)
         UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
     end
-
     KicksValueLbl.Text = tostring(antiKickCount)
     if antiKickCount > 0 then
         KicksValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
@@ -759,15 +742,6 @@ MinBtn.MouseButton1Click:Connect(function()
     Frame.Visible = false
     StarBtn.Visible = true
     pulseTween:Play()
-end)
-
-StarBtn.MouseButton1Click:Connect(function()
-    if not starDragging then
-        Frame.Visible = true
-        StarBtn.Visible = false
-        pulseTween:Cancel()
-        StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-    end
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
