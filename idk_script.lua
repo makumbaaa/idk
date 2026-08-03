@@ -78,7 +78,7 @@ end
 Players.LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         simulateActivity()
-        antiKickCount = antiKickCount + 1
+        antiKickCount += 1
     end
 end)
 
@@ -282,20 +282,14 @@ local function switchTab(name)
         tabPages[n].Visible = (n == name)
         local b = tabButtons[n]
         if b then
-            -- Znajdź ActiveBar jako dziecko
-            local activeBar = b:FindFirstChild("ActiveBar")
             if n == name then
                 b.BackgroundColor3 = Color3.fromRGB(30, 24, 52)
                 b.TextColor3 = Color3.fromRGB(200, 190, 230)
-                if activeBar then
-                    activeBar.Visible = true
-                end
+                b.ActiveBar.Visible = true
             else
                 b.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
                 b.TextColor3 = Color3.fromRGB(70, 70, 70)
-                if activeBar then
-                    activeBar.Visible = false
-                end
+                b.ActiveBar.Visible = false
             end
         end
     end
@@ -330,118 +324,6 @@ for i, name in ipairs(TABS) do
 
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
 end
-
--- ═══════════════════════════════════════
---  MAIN PAGE
--- ═══════════════════════════════════════
-local mainPage = tabPages["main"]
-
-local MainWelcomeLbl = Instance.new("TextLabel")
-MainWelcomeLbl.Size = UDim2.new(1, -16, 0, 24)
-MainWelcomeLbl.Position = UDim2.new(0, 10, 0, 10)
-MainWelcomeLbl.BackgroundTransparency = 1
-MainWelcomeLbl.Text = "idk script v6"
-MainWelcomeLbl.TextColor3 = Color3.fromRGB(200, 190, 230)
-MainWelcomeLbl.TextSize = 16
-MainWelcomeLbl.Font = Enum.Font.GothamBold
-MainWelcomeLbl.TextXAlignment = Enum.TextXAlignment.Left
-MainWelcomeLbl.Parent = mainPage
-
-local MainSubLbl = Instance.new("TextLabel")
-MainSubLbl.Size = UDim2.new(1, -16, 0, 18)
-MainSubLbl.Position = UDim2.new(0, 10, 0, 40)
-MainSubLbl.BackgroundTransparency = 1
-MainSubLbl.Text = "Wybierz zakładkę po lewej, aby skonfigurować"
-MainSubLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-MainSubLbl.TextSize = 10
-MainSubLbl.Font = Enum.Font.Gotham
-MainSubLbl.TextXAlignment = Enum.TextXAlignment.Left
-MainSubLbl.Parent = mainPage
-
--- Info o maszynach
-local InfoFrame = Instance.new("Frame")
-InfoFrame.Size = UDim2.new(1, -16, 0, 120)
-InfoFrame.Position = UDim2.new(0, 10, 0, 70)
-InfoFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-InfoFrame.BorderSizePixel = 0
-InfoFrame.Parent = mainPage
-Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 5)
-
-local InfoStroke = Instance.new("UIStroke")
-InfoStroke.Color = Color3.fromRGB(36, 36, 36)
-InfoStroke.Thickness = 1
-InfoStroke.Parent = InfoFrame
-
-local InfoTitle = Instance.new("TextLabel")
-InfoTitle.Size = UDim2.new(1, -20, 0, 20)
-InfoTitle.Position = UDim2.new(0, 12, 0, 8)
-InfoTitle.BackgroundTransparency = 1
-InfoTitle.Text = "Status maszyn"
-InfoTitle.TextColor3 = Color3.fromRGB(86, 86, 86)
-InfoTitle.TextSize = 10
-InfoTitle.Font = Enum.Font.GothamBold
-InfoTitle.TextXAlignment = Enum.TextXAlignment.Left
-InfoTitle.Parent = InfoFrame
-
-local function createStatusLine(text, yPos)
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(1, -16, 0, 22)
-    line.Position = UDim2.new(0, 8, 0, yPos)
-    line.BackgroundTransparency = 1
-    line.Parent = InfoFrame
-    
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 6, 0, 6)
-    dot.Position = UDim2.new(0, 0, 0.5, -3)
-    dot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    dot.BorderSizePixel = 0
-    dot.Parent = line
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
-    
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, -14, 1, 0)
-    lbl.Position = UDim2.new(0, 14, 0, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = text
-    lbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-    lbl.TextSize = 10
-    lbl.Font = Enum.Font.Gotham
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = line
-    
-    return { dot = dot, label = lbl }
-end
-
-local hugeStatus = createStatusLine("Huge Luck", 32)
-local titanicStatus = createStatusLine("Titanic Luck", 58)
-local gargantuanStatus = createStatusLine("Gargantuan Luck", 84)
-
--- ═══════════════════════════════════════
---  AUTO FARM PAGE
--- ═══════════════════════════════════════
-local autoFarmPage = tabPages["auto farm"]
-
-local AutoFarmLbl = Instance.new("TextLabel")
-AutoFarmLbl.Size = UDim2.new(1, -16, 0, 24)
-AutoFarmLbl.Position = UDim2.new(0, 10, 0, 10)
-AutoFarmLbl.BackgroundTransparency = 1
-AutoFarmLbl.Text = "Auto Farm"
-AutoFarmLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-AutoFarmLbl.TextSize = 14
-AutoFarmLbl.Font = Enum.Font.GothamBold
-AutoFarmLbl.TextXAlignment = Enum.TextXAlignment.Left
-AutoFarmLbl.Parent = autoFarmPage
-
-local AutoFarmSub = Instance.new("TextLabel")
-AutoFarmSub.Size = UDim2.new(1, -16, 0, 18)
-AutoFarmSub.Position = UDim2.new(0, 10, 0, 38)
-AutoFarmSub.BackgroundTransparency = 1
-AutoFarmSub.Text = "Ta funkcja będzie dostępna wkrótce"
-AutoFarmSub.TextColor3 = Color3.fromRGB(60, 60, 60)
-AutoFarmSub.TextSize = 10
-AutoFarmSub.Font = Enum.Font.Gotham
-AutoFarmSub.TextXAlignment = Enum.TextXAlignment.Left
-AutoFarmSub.Parent = autoFarmPage
 
 -- ═══════════════════════════════════════
 --  EVENT PAGE
@@ -502,11 +384,8 @@ local function fireRenew(machine)
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 600)
     end)
-    if ok then 
-        machine.count = machine.count + 1
-    else 
-        warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) 
-    end
+    if ok then machine.count += 1
+    else warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) end
 end
 
 local function makeCheckbox(machine, yPos)
@@ -580,7 +459,6 @@ local function makeCheckbox(machine, yPos)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
         config.machines[machine.tier] = state
         saveConfig()
-        updateStatus()
     end
 
     RunService.Heartbeat:Connect(function()
@@ -596,6 +474,7 @@ local function makeCheckbox(machine, yPos)
     Btn.MouseButton1Click:Connect(function()
         local s = not machine.enabled
         setActive(s)
+        updateStatus()
         if s then
             fireRenew(machine)
             lastRenew[machine.tier] = tick()
@@ -835,32 +714,6 @@ RunService.Heartbeat:Connect(function()
         KicksRS.Color = Color3.fromRGB(36, 36, 36)
         KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
     end
-    
-    -- Aktualizacja statusów na głównej stronie
-    local colors = {
-        [true] = Color3.fromRGB(110, 80, 220),
-        [false] = Color3.fromRGB(50, 50, 50)
-    }
-    local textColors = {
-        [true] = Color3.fromRGB(132, 112, 198),
-        [false] = Color3.fromRGB(60, 60, 60)
-    }
-    local statusText = {
-        [true] = "ON ✓",
-        [false] = "OFF ✗"
-    }
-    
-    hugeStatus.dot.BackgroundColor3 = colors[MACHINES[1].enabled]
-    hugeStatus.label.TextColor3 = textColors[MACHINES[1].enabled]
-    hugeStatus.label.Text = "Huge Luck: " .. statusText[MACHINES[1].enabled] .. " (" .. MACHINES[1].count .. ")"
-    
-    titanicStatus.dot.BackgroundColor3 = colors[MACHINES[2].enabled]
-    titanicStatus.label.TextColor3 = textColors[MACHINES[2].enabled]
-    titanicStatus.label.Text = "Titanic Luck: " .. statusText[MACHINES[2].enabled] .. " (" .. MACHINES[2].count .. ")"
-    
-    gargantuanStatus.dot.BackgroundColor3 = colors[MACHINES[3].enabled]
-    gargantuanStatus.label.TextColor3 = textColors[MACHINES[3].enabled]
-    gargantuanStatus.label.Text = "Gargantuan Luck: " .. statusText[MACHINES[3].enabled] .. " (" .. MACHINES[3].count .. ")"
 end)
 
 -- ═══════════════════════════════════════
@@ -877,7 +730,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  STAR CONNECTIONS
+--  STAR CONNECTIONS (down here so Frame exists)
 -- ═══════════════════════════════════════
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -897,7 +750,7 @@ StarBtn.InputEnded:Connect(function(i)
             Frame.Visible        = true
             StarBtn.Visible      = false
             pulseTween:Cancel()
-            StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
         end
     end
 end)
@@ -934,5 +787,3 @@ RunService.Heartbeat:Connect(function()
 end)
 
 switchTab("main")
-
-print("[idk script] Started successfully!")
