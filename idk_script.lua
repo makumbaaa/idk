@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local HttpService = game:GetService("HttpService")
+local ContentProvider = game:GetService("ContentProvider")
 
 -- ═══════════════════════════════════════
 --  CONFIGURATION (SAVE/LOAD)
@@ -106,6 +107,8 @@ ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 --  ICON
 -- ═══════════════════════════════════════
 
+local ICON_DECAL_ID = "72164665440799"
+
 local StarBtn = Instance.new("TextButton")
 StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
@@ -124,16 +127,45 @@ local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(200, 155, 40)
 Stroke.Parent = StarBtn
 
+local StarFallback = Instance.new("TextLabel")
+StarFallback.Size = UDim2.new(1, 0, 1, 0)
+StarFallback.BackgroundTransparency = 1
+StarFallback.Text = "*"
+StarFallback.TextColor3 = Color3.fromRGB(240, 185, 40)
+StarFallback.TextSize = 34
+StarFallback.Font = Enum.Font.GothamBold
+StarFallback.ZIndex = 9
+StarFallback.Parent = StarBtn
+
 -- Ikona
 local StarIcon = Instance.new("ImageLabel")
 StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
 StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
 StarIcon.BackgroundTransparency = 1
-StarIcon.Image = "rbxthumb://type=Asset&id=72164665440799&w=150&h=150"
+StarIcon.Image = "rbxassetid://" .. ICON_DECAL_ID
 StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
 StarIcon.ScaleType = Enum.ScaleType.Fit
 StarIcon.ZIndex = 10
 StarIcon.Parent = StarBtn
+
+local function resolveIconImage()
+    local ok, objects = pcall(function()
+        return game:GetObjects("rbxassetid://" .. ICON_DECAL_ID)
+    end)
+
+    if ok and type(objects) == "table" then
+        local decal = objects[1]
+        if decal and decal:IsA("Decal") and decal.Texture ~= "" then
+            StarIcon.Image = decal.Texture
+        end
+    end
+
+    pcall(function()
+        ContentProvider:PreloadAsync({ StarIcon })
+    end)
+end
+
+task.spawn(resolveIconImage)
 
 -- Pulsowanie koloru
 local pulseTween = TweenService:Create(
