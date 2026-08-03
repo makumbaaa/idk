@@ -124,14 +124,14 @@ Corner.CornerRadius = UDim.new(1, 0)
 Corner.Parent = StarBtn
 
 local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(200, 155, 40)
+Stroke.Color = Color3.fromRGB(62, 62, 62)
 Stroke.Parent = StarBtn
 
 local StarFallback = Instance.new("TextLabel")
 StarFallback.Size = UDim2.new(1, 0, 1, 0)
 StarFallback.BackgroundTransparency = 1
 StarFallback.Text = "*"
-StarFallback.TextColor3 = Color3.fromRGB(240, 185, 40)
+StarFallback.TextColor3 = Color3.fromRGB(185, 185, 185)
 StarFallback.TextSize = 34
 StarFallback.Font = Enum.Font.GothamBold
 StarFallback.ZIndex = 9
@@ -139,11 +139,11 @@ StarFallback.Parent = StarBtn
 
 -- Ikona
 local StarIcon = Instance.new("ImageLabel")
-StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
-StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
+StarIcon.Size = UDim2.new(0.86, 0, 0.86, 0)
+StarIcon.Position = UDim2.new(0.07, 0, 0.07, 0)
 StarIcon.BackgroundTransparency = 1
 StarIcon.Image = "rbxassetid://" .. ICON_DECAL_ID
-StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
+StarIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
 StarIcon.ScaleType = Enum.ScaleType.Fit
 StarIcon.ZIndex = 10
 StarIcon.Parent = StarBtn
@@ -163,13 +163,17 @@ local function resolveIconImage()
     pcall(function()
         ContentProvider:PreloadAsync({ StarIcon })
     end)
+
+    if StarIcon.Image ~= "" then
+        StarFallback.Visible = false
+    end
 end
 
 task.spawn(resolveIconImage)
 
--- Pulsowanie koloru
+-- Pulsowanie obramowania
 local pulseTween = TweenService:Create(
-    StarIcon,
+    Stroke,
     TweenInfo.new(
         0.85,
         Enum.EasingStyle.Sine,
@@ -178,7 +182,7 @@ local pulseTween = TweenService:Create(
         true
     ),
     {
-        ImageColor3 = Color3.fromRGB(255, 220, 80)
+        Color = Color3.fromRGB(125, 125, 125)
     }
 )
 
@@ -782,7 +786,7 @@ StarBtn.InputEnded:Connect(function(i)
             Frame.Visible        = true
             StarBtn.Visible      = false
             pulseTween:Cancel()
-            StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
+            Stroke.Color         = Color3.fromRGB(62, 62, 62)
         end
     end
 end)
