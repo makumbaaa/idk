@@ -750,7 +750,7 @@ StarBtn.InputEnded:Connect(function(i)
             Frame.Visible        = true
             StarBtn.Visible      = false
             pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+            StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
         end
     end
 end)
