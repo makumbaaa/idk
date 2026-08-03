@@ -282,18 +282,19 @@ local function switchTab(name)
         tabPages[n].Visible = (n == name)
         local b = tabButtons[n]
         if b then
+            -- Znajdź ActiveBar jako dziecko
+            local activeBar = b:FindFirstChild("ActiveBar")
             if n == name then
                 b.BackgroundColor3 = Color3.fromRGB(30, 24, 52)
                 b.TextColor3 = Color3.fromRGB(200, 190, 230)
-                -- Sprawdź czy ActiveBar istnieje
-                if b:FindFirstChild("ActiveBar") then
-                    b.ActiveBar.Visible = true
+                if activeBar then
+                    activeBar.Visible = true
                 end
             else
                 b.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
                 b.TextColor3 = Color3.fromRGB(70, 70, 70)
-                if b:FindFirstChild("ActiveBar") then
-                    b.ActiveBar.Visible = false
+                if activeBar then
+                    activeBar.Visible = false
                 end
             end
         end
@@ -876,7 +877,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  STAR CONNECTIONS (down here so Frame exists)
+--  STAR CONNECTIONS
 -- ═══════════════════════════════════════
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -896,7 +897,6 @@ StarBtn.InputEnded:Connect(function(i)
             Frame.Visible        = true
             StarBtn.Visible      = false
             pulseTween:Cancel()
-            -- StarIcon istnieje, nie StarLabel
             StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
         end
     end
