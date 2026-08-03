@@ -126,7 +126,7 @@ local ICON_DECAL_ID = "72164665440799"
 
 local StarBtn = Instance.new("ImageButton")
 StarBtn.Size = UDim2.new(0, 76, 0, 76)
-StarBtn.Position = UDim2.new(0, 20, 0.5, -38)
+StarBtn.Position = UDim2.new(0.5, -38, 0, 20)
 StarBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 StarBtn.BorderSizePixel = 0
 StarBtn.ClipsDescendants = true
