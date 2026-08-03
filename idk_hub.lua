@@ -200,22 +200,6 @@ antiKickToggle:OnChanged(function(value)
     setAntiKickActive(value)
 end)
 
--- Minimize + close buttons (parity with the original GUI)
-antiKickBox:AddButton({
-    Text = "Minimize (hide UI)",
-    Func = function()
-        Library:Toggle(false)
-    end,
-    Tooltip = "Hides the window and shows the animated icon",
-})
-
-antiKickBox:AddButton({
-    Text    = "Close (unload)",
-    Func    = function() Library:Unload() end,
-    Risky   = true,
-    Tooltip = "Completely unloads the script",
-})
-
 local uptimeLabel = uptimeBox:AddLabel("Uptime: 00:00:00")
 local kicksLabel   = uptimeBox:AddLabel("Kicks prevented: 0")
 
