@@ -132,15 +132,15 @@ local pulseTween = TweenService:Create(StarLabel,
     { TextColor3 = Color3.fromRGB(255, 220, 80) }
 )
 
--- star drag — fixed declaration order
+-- star drag
 local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
 
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        starDragging = true
-        starMoved    = false
+        starDragging  = true
+        starMoved     = false
         starDragStart = i.Position
         starPosStart  = StarBtn.Position
     end
@@ -149,15 +149,16 @@ end)
 StarBtn.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
         local wasClick = not starMoved
-        starDragging = false
-        starMoved    = false
+        starDragging   = false
+        starMoved      = false
         if wasClick then
-            -- defer one frame so Frame is guaranteed to exist
             task.defer(function()
-                Frame.Visible   = true
-                StarBtn.Visible = false
-                pulseTween:Cancel()
-                StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+                if Frame then
+                    Frame.Visible        = true
+                    StarBtn.Visible      = false
+                    pulseTween:Cancel()
+                    StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+                end
             end)
         end
     end
