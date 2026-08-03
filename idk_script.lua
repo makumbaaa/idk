@@ -284,7 +284,7 @@ ContentArea.Parent = Frame
 -- ═══════════════════════════════════════
 --  PAGES + TAB BUTTONS
 -- ═══════════════════════════════════════
-local TABS = { "main", "auto farm", "event", "misc" }
+local TABS = { "main", "auto farm", "auto hatch", "event", "misc" }
 local tabButtons = {}
 local tabPages   = {}
 
@@ -317,7 +317,7 @@ local function switchTab(name)
     end
 end
 
-local tabYPositions = { 12, 52, 92, 132 }
+local tabYPositions = { 12, 52, 92, 132, 172 }
 for i, name in ipairs(TABS) do
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0, 84, 0, 32)
