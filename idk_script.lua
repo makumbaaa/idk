@@ -1,5 +1,4 @@
--- idk script 
-
+-- idk script (poprawiony anti-afk)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -55,16 +54,17 @@ end
 
 loadConfig()
 
--- ============================================
--- ANTI-AFK za pomocą RemoteEvent
--- ============================================
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- ═══════════════════════════════════════
+--  ANTI-KICK / ANTI-AFK (poprawione)
+-- ═══════════════════════════════════════
+local antiKickEnabled = false
+local antiKickStartTime = nil
+local antiKickCount = 0
 
+-- RemoteEvent do resetowania timera AFK
 local antiAfkRemote = ReplicatedStorage.Network["Idle Tracking: Stop Timer"]
-local antiKickEnabled = true   -- możesz przełączać
 
--- Funkcja resetująca licznik bezczynności
+-- Funkcja resetująca timer bezczynności
 local function resetIdleTimer()
     if antiKickEnabled then
         pcall(function()
@@ -73,21 +73,25 @@ local function resetIdleTimer()
     end
 end
 
--- Wywołuj co 30-60 sekund, żeby być bezpiecznym
+-- Cykliczne wywoływanie co 30 sekund
 task.spawn(function()
-    while antiKickEnabled do
+    while true do
         resetIdleTimer()
-        task.wait(30) -- co 30 sekund
+        task.wait(30)
     end
 end)
 
--- Opcjonalnie: podłącz pod Idled, żeby działało też automatycznie
+-- Dodatkowe zabezpieczenie na wypadek Idled
 Players.LocalPlayer.Idled:Connect(function()
-    resetIdleTimer()
+    if antiKickEnabled then
+        resetIdleTimer()
+        antiKickCount += 1
+    end
 end)
 
-print("✅ Anti-AFK uruchomiony (RemoteEvent). Aby wyłączyć: antiKickEnabled = false")
-
+-- ═══════════════════════════════════════
+--  MASZYNY (bez zmian)
+-- ═══════════════════════════════════════
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
 local RENEW_INTERVAL = 55
@@ -100,7 +104,7 @@ local MACHINES = {
 }
 
 -- ═══════════════════════════════════════
---  SCREEN GUI
+--  SCREEN GUI (bez zmian)
 -- ═══════════════════════════════════════
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "idk_script"
@@ -116,9 +120,8 @@ end
 ScreenGui.Parent = PlayerGui
 
 -- ═══════════════════════════════════════
---  ICON
+--  ICON (bez zmian)
 -- ═══════════════════════════════════════
-
 local ICON_DECAL_ID = "72164665440799"
 
 local StarBtn = Instance.new("ImageButton")
@@ -185,7 +188,7 @@ local starMoved    = false
 local starDragStart, starPosStart
 
 -- ═══════════════════════════════════════
---  MAIN FRAME
+--  MAIN FRAME (bez zmian)
 -- ═══════════════════════════════════════
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 440, 0, 340)
@@ -259,7 +262,7 @@ local MinBtn   = makeTitleBtn(-54, Color3.fromRGB(175, 135, 25), "—")
 local CloseBtn = makeTitleBtn(-28, Color3.fromRGB(155, 40, 40),  "×")
 
 -- ═══════════════════════════════════════
---  SIDEBAR
+--  SIDEBAR (bez zmian)
 -- ═══════════════════════════════════════
 local Sidebar = Instance.new("Frame")
 Sidebar.Size = UDim2.new(0, 100, 1, -40)
@@ -277,7 +280,7 @@ SideLine.BorderSizePixel = 0
 SideLine.Parent = Sidebar
 
 -- ═══════════════════════════════════════
---  CONTENT AREA
+--  CONTENT AREA (bez zmian)
 -- ═══════════════════════════════════════
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -102, 1, -42)
@@ -287,7 +290,7 @@ ContentArea.BorderSizePixel = 0
 ContentArea.Parent = Frame
 
 -- ═══════════════════════════════════════
---  PAGES + TAB BUTTONS
+--  PAGES + TAB BUTTONS (bez zmian)
 -- ═══════════════════════════════════════
 local TABS = { "main", "auto farm", "auto hatch", "event", "misc" }
 local tabButtons = {}
@@ -353,7 +356,7 @@ for i, name in ipairs(TABS) do
 end
 
 -- ═══════════════════════════════════════
---  EVENT PAGE
+--  EVENT PAGE (bez zmian)
 -- ═══════════════════════════════════════
 local eventPage = tabPages["event"]
 
@@ -519,7 +522,7 @@ makeCheckbox(MACHINES[2], 94)
 makeCheckbox(MACHINES[3], 136)
 
 -- ═══════════════════════════════════════
---  MISC PAGE
+--  MISC PAGE (bez zmian)
 -- ═══════════════════════════════════════
 local miscPage = tabPages["misc"]
 
@@ -744,7 +747,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  MINIMIZE / CLOSE
+--  MINIMIZE / CLOSE (bez zmian)
 -- ═══════════════════════════════════════
 MinBtn.MouseButton1Click:Connect(function()
     Frame.Visible = false
@@ -757,7 +760,7 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ═══════════════════════════════════════
---  STAR CONNECTIONS (down here so Frame exists)
+--  STAR CONNECTIONS (bez zmian)
 -- ═══════════════════════════════════════
 StarBtn.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -798,7 +801,7 @@ UIS.InputChanged:Connect(function(i)
 end)
 
 -- ═══════════════════════════════════════
---  LOOP
+--  LOOP (bez zmian)
 -- ═══════════════════════════════════════
 RunService.Heartbeat:Connect(function()
     local now = tick()
