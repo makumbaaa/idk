@@ -55,33 +55,38 @@ end
 
 loadConfig()
 
--- ═══════════════════════════════════════
---  ANTI-KICK / ANTI-AFK STATE
--- ═══════════════════════════════════════
-local VirtualUser = game:GetService("VirtualUser")
-local antiKickEnabled = false
-local antiKickStartTime = nil
-local antiKickCount = 0
+-- ============================================
+-- ANTI-AFK za pomocą RemoteEvent
+-- ============================================
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local function simulateActivity()
-    local success = pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
-    if not success then
-        local vu = game:GetService("VirtualUser")
-        vu:Button2Down(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
-        task.wait(1)
-        vu:Button2Up(Vector2.new(0,0),workspace.CurrentCamera.CFrame)
+local antiAfkRemote = ReplicatedStorage.Network["Idle Tracking: Stop Timer"]
+local antiKickEnabled = true   -- możesz przełączać
+
+-- Funkcja resetująca licznik bezczynności
+local function resetIdleTimer()
+    if antiKickEnabled then
+        pcall(function()
+            antiAfkRemote:FireServer()
+        end)
     end
 end
 
-Players.LocalPlayer.Idled:Connect(function()
-    if antiKickEnabled then
-        simulateActivity()
-        antiKickCount += 1
+-- Wywołuj co 30-60 sekund, żeby być bezpiecznym
+task.spawn(function()
+    while antiKickEnabled do
+        resetIdleTimer()
+        task.wait(30) -- co 30 sekund
     end
 end)
+
+-- Opcjonalnie: podłącz pod Idled, żeby działało też automatycznie
+Players.LocalPlayer.Idled:Connect(function()
+    resetIdleTimer()
+end)
+
+print("✅ Anti-AFK uruchomiony (RemoteEvent). Aby wyłączyć: antiKickEnabled = false")
 
 local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
 
