@@ -103,9 +103,8 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 -- ═══════════════════════════════════════
---  ICON
+--  STAR BUTTON
 -- ═══════════════════════════════════════
-
 local StarBtn = Instance.new("TextButton")
 StarBtn.Size = UDim2.new(0, 52, 0, 52)
 StarBtn.Position = UDim2.new(0, 20, 0.5, -26)
@@ -115,47 +114,67 @@ StarBtn.Text = ""
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
+Instance.new("UICorner", StarBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", StarBtn).Color = Color3.fromRGB(200, 155, 40)
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(1, 0)
-Corner.Parent = StarBtn
+local StarLabel = Instance.new("TextLabel")
+StarLabel.Size = UDim2.new(1, 0, 1, 0)
+StarLabel.BackgroundTransparency = 1
+StarLabel.Text = "★"
+StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+StarLabel.TextSize = 28
+StarLabel.Font = Enum.Font.GothamBold
+StarLabel.ZIndex = 10
+StarLabel.Parent = StarBtn
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(200, 155, 40)
-Stroke.Parent = StarBtn
-
--- Ikona
-local StarIcon = Instance.new("ImageLabel")
-StarIcon.Size = UDim2.new(0.7, 0, 0.7, 0)
-StarIcon.Position = UDim2.new(0.15, 0, 0.15, 0)
-StarIcon.BackgroundTransparency = 1
-StarIcon.Image = "rbxassetid://72164665440799" -- ← WSTAW TUTAJ SWOJE ASSET ID
-StarIcon.ImageColor3 = Color3.fromRGB(240, 185, 40)
-StarIcon.ScaleType = Enum.ScaleType.Fit
-StarIcon.ZIndex = 10
-StarIcon.Parent = StarBtn
-
--- Pulsowanie koloru
-local pulseTween = TweenService:Create(
-    StarIcon,
-    TweenInfo.new(
-        0.85,
-        Enum.EasingStyle.Sine,
-        Enum.EasingDirection.InOut,
-        -1,
-        true
-    ),
-    {
-        ImageColor3 = Color3.fromRGB(255, 220, 80)
-    }
+local pulseTween = TweenService:Create(StarLabel,
+    TweenInfo.new(0.85, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+    { TextColor3 = Color3.fromRGB(255, 220, 80) }
 )
-
-pulseTween:Play()
 
 -- star drag
 local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
+
+-- star connections (down here so Frame exists)
+StarBtn.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        starDragging  = true
+        starMoved     = false
+        starDragStart = i.Position
+        starPosStart  = StarBtn.Position
+    end
+end)
+
+StarBtn.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local wasClick = not starMoved
+        starDragging   = false
+        starMoved      = false
+        if wasClick then
+            Frame.Visible        = true
+            StarBtn.Visible      = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        end
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - starDragStart
+        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
+            starMoved = true
+        end
+        if starMoved then
+            StarBtn.Position = UDim2.new(
+                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
+                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
+            )
+        end
+    end
+end)
 
 -- ═══════════════════════════════════════
 --  MAIN FRAME
@@ -285,11 +304,15 @@ local function switchTab(name)
             if n == name then
                 b.BackgroundColor3 = Color3.fromRGB(30, 24, 52)
                 b.TextColor3 = Color3.fromRGB(200, 190, 230)
-                b.ActiveBar.Visible = true
+                if b.ActiveBar then
+                    b.ActiveBar.Visible = true
+                end
             else
                 b.BackgroundColor3 = Color3.fromRGB(17, 17, 17)
                 b.TextColor3 = Color3.fromRGB(70, 70, 70)
-                b.ActiveBar.Visible = false
+                if b.ActiveBar then
+                    b.ActiveBar.Visible = false
+                end
             end
         end
     end
@@ -321,9 +344,150 @@ for i, name in ipairs(TABS) do
     bar.ZIndex = 4
     bar.Parent = btn
     Instance.new("UICorner", bar).CornerRadius = UDim.new(1, 0)
+    btn.ActiveBar = bar
 
     btn.MouseButton1Click:Connect(function() switchTab(name) end)
 end
+
+-- ═══════════════════════════════════════
+--  MAIN PAGE (DODANA ZAWARTOŚĆ)
+-- ═══════════════════════════════════════
+local mainPage = tabPages["main"]
+
+local MainWelcomeLbl = Instance.new("TextLabel")
+MainWelcomeLbl.Size = UDim2.new(1, -16, 0, 24)
+MainWelcomeLbl.Position = UDim2.new(0, 10, 0, 10)
+MainWelcomeLbl.BackgroundTransparency = 1
+MainWelcomeLbl.Text = "idk script v6"
+MainWelcomeLbl.TextColor3 = Color3.fromRGB(200, 190, 230)
+MainWelcomeLbl.TextSize = 16
+MainWelcomeLbl.Font = Enum.Font.GothamBold
+MainWelcomeLbl.TextXAlignment = Enum.TextXAlignment.Left
+MainWelcomeLbl.Parent = mainPage
+
+local MainSubLbl = Instance.new("TextLabel")
+MainSubLbl.Size = UDim2.new(1, -16, 0, 18)
+MainSubLbl.Position = UDim2.new(0, 10, 0, 40)
+MainSubLbl.BackgroundTransparency = 1
+MainSubLbl.Text = "Wybierz zakładkę po lewej, aby skonfigurować"
+MainSubLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+MainSubLbl.TextSize = 10
+MainSubLbl.Font = Enum.Font.Gotham
+MainSubLbl.TextXAlignment = Enum.TextXAlignment.Left
+MainSubLbl.Parent = mainPage
+
+-- Info o maszynach
+local InfoFrame = Instance.new("Frame")
+InfoFrame.Size = UDim2.new(1, -16, 0, 120)
+InfoFrame.Position = UDim2.new(0, 10, 0, 70)
+InfoFrame.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
+InfoFrame.BorderSizePixel = 0
+InfoFrame.Parent = mainPage
+Instance.new("UICorner", InfoFrame).CornerRadius = UDim.new(0, 5)
+
+local InfoStroke = Instance.new("UIStroke")
+InfoStroke.Color = Color3.fromRGB(36, 36, 36)
+InfoStroke.Thickness = 1
+InfoStroke.Parent = InfoFrame
+
+local InfoTitle = Instance.new("TextLabel")
+InfoTitle.Size = UDim2.new(1, -20, 0, 20)
+InfoTitle.Position = UDim2.new(0, 12, 0, 8)
+InfoTitle.BackgroundTransparency = 1
+InfoTitle.Text = "Status maszyn"
+InfoTitle.TextColor3 = Color3.fromRGB(86, 86, 86)
+InfoTitle.TextSize = 10
+InfoTitle.Font = Enum.Font.GothamBold
+InfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+InfoTitle.Parent = InfoFrame
+
+local function createStatusLine(text, yPos)
+    local line = Instance.new("Frame")
+    line.Size = UDim2.new(1, -16, 0, 22)
+    line.Position = UDim2.new(0, 8, 0, yPos)
+    line.BackgroundTransparency = 1
+    line.Parent = InfoFrame
+    
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 6, 0, 6)
+    dot.Position = UDim2.new(0, 0, 0.5, -3)
+    dot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    dot.BorderSizePixel = 0
+    dot.Parent = line
+    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -14, 1, 0)
+    lbl.Position = UDim2.new(0, 14, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+    lbl.TextSize = 10
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = line
+    
+    return { dot = dot, label = lbl }
+end
+
+local hugeStatus = createStatusLine("Huge Luck", 32)
+local titanicStatus = createStatusLine("Titanic Luck", 58)
+local gargantuanStatus = createStatusLine("Gargantuan Luck", 84)
+
+-- Aktualizacja statusów na żywo
+RunService.Heartbeat:Connect(function()
+    local colors = {
+        [true] = Color3.fromRGB(110, 80, 220),
+        [false] = Color3.fromRGB(50, 50, 50)
+    }
+    local textColors = {
+        [true] = Color3.fromRGB(132, 112, 198),
+        [false] = Color3.fromRGB(60, 60, 60)
+    }
+    local statusText = {
+        [true] = "ON ✓",
+        [false] = "OFF ✗"
+    }
+    
+    hugeStatus.dot.BackgroundColor3 = colors[MACHINES[1].enabled]
+    hugeStatus.label.TextColor3 = textColors[MACHINES[1].enabled]
+    hugeStatus.label.Text = "Huge Luck: " .. statusText[MACHINES[1].enabled] .. " (" .. MACHINES[1].count .. ")"
+    
+    titanicStatus.dot.BackgroundColor3 = colors[MACHINES[2].enabled]
+    titanicStatus.label.TextColor3 = textColors[MACHINES[2].enabled]
+    titanicStatus.label.Text = "Titanic Luck: " .. statusText[MACHINES[2].enabled] .. " (" .. MACHINES[2].count .. ")"
+    
+    gargantuanStatus.dot.BackgroundColor3 = colors[MACHINES[3].enabled]
+    gargantuanStatus.label.TextColor3 = textColors[MACHINES[3].enabled]
+    gargantuanStatus.label.Text = "Gargantuan Luck: " .. statusText[MACHINES[3].enabled] .. " (" .. MACHINES[3].count .. ")"
+end)
+
+-- ═══════════════════════════════════════
+--  AUTO FARM PAGE (pusta na razie)
+-- ═══════════════════════════════════════
+local autoFarmPage = tabPages["auto farm"]
+
+local AutoFarmLbl = Instance.new("TextLabel")
+AutoFarmLbl.Size = UDim2.new(1, -16, 0, 24)
+AutoFarmLbl.Position = UDim2.new(0, 10, 0, 10)
+AutoFarmLbl.BackgroundTransparency = 1
+AutoFarmLbl.Text = "Auto Farm"
+AutoFarmLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
+AutoFarmLbl.TextSize = 14
+AutoFarmLbl.Font = Enum.Font.GothamBold
+AutoFarmLbl.TextXAlignment = Enum.TextXAlignment.Left
+AutoFarmLbl.Parent = autoFarmPage
+
+local AutoFarmSub = Instance.new("TextLabel")
+AutoFarmSub.Size = UDim2.new(1, -16, 0, 18)
+AutoFarmSub.Position = UDim2.new(0, 10, 0, 38)
+AutoFarmSub.BackgroundTransparency = 1
+AutoFarmSub.Text = "Ta funkcja będzie dostępna wkrótce"
+AutoFarmSub.TextColor3 = Color3.fromRGB(60, 60, 60)
+AutoFarmSub.TextSize = 10
+AutoFarmSub.Font = Enum.Font.Gotham
+AutoFarmSub.TextXAlignment = Enum.TextXAlignment.Left
+AutoFarmSub.Parent = autoFarmPage
 
 -- ═══════════════════════════════════════
 --  EVENT PAGE
@@ -384,8 +548,11 @@ local function fireRenew(machine)
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 600)
     end)
-    if ok then machine.count += 1
-    else warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) end
+    if ok then 
+        machine.count += 1 
+    else 
+        warn("[idk] -> " .. machine.tier .. ": " .. tostring(err)) 
+    end
 end
 
 local function makeCheckbox(machine, yPos)
@@ -459,6 +626,7 @@ local function makeCheckbox(machine, yPos)
         Ctr.TextColor3       = state and Color3.fromRGB(132, 112, 198) or Color3.fromRGB(66, 66, 66)
         config.machines[machine.tier] = state
         saveConfig()
+        updateStatus()
     end
 
     RunService.Heartbeat:Connect(function()
@@ -474,7 +642,6 @@ local function makeCheckbox(machine, yPos)
     Btn.MouseButton1Click:Connect(function()
         local s = not machine.enabled
         setActive(s)
-        updateStatus()
         if s then
             fireRenew(machine)
             lastRenew[machine.tier] = tick()
@@ -551,239 +718,4 @@ AKBox.Position = UDim2.new(0, 10, 0.5, -7)
 AKBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 AKBox.BorderSizePixel = 0
 AKBox.Parent = AKRow
-Instance.new("UICorner", AKBox).CornerRadius = UDim.new(0, 3)
-
-local AKBS = Instance.new("UIStroke")
-AKBS.Color = Color3.fromRGB(60, 60, 60)
-AKBS.Thickness = 1
-AKBS.Parent = AKBox
-
-local AKFill = Instance.new("Frame")
-AKFill.Size = UDim2.new(0, 7, 0, 7)
-AKFill.Position = UDim2.new(0.5, -3, 0.5, -3)
-AKFill.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
-AKFill.BorderSizePixel = 0
-AKFill.Visible = false
-AKFill.Parent = AKBox
-Instance.new("UICorner", AKFill).CornerRadius = UDim.new(0, 2)
-
-local AKLbl = Instance.new("TextLabel")
-AKLbl.Size = UDim2.new(1, -55, 1, 0)
-AKLbl.Position = UDim2.new(0, 32, 0, 0)
-AKLbl.BackgroundTransparency = 1
-AKLbl.Text = "Anti-Kick"
-AKLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
-AKLbl.TextSize = 12
-AKLbl.Font = Enum.Font.Gotham
-AKLbl.TextXAlignment = Enum.TextXAlignment.Left
-AKLbl.Parent = AKRow
-
-local function setAntiKickActive(state)
-    antiKickEnabled = state
-    AKFill.Visible = state
-    AKBS.Color             = state and Color3.fromRGB(110, 80, 220) or Color3.fromRGB(60, 60, 60)
-    AKBox.BackgroundColor3 = state and Color3.fromRGB(20, 16, 36)  or Color3.fromRGB(30, 30, 30)
-    AKLbl.TextColor3       = state and Color3.fromRGB(192, 185, 215) or Color3.fromRGB(86, 86, 86)
-    AKRS.Color             = state and Color3.fromRGB(70, 46, 140) or Color3.fromRGB(36, 36, 36)
-    AKRow.BackgroundColor3 = state and Color3.fromRGB(26, 20, 44)  or Color3.fromRGB(26, 26, 26)
-    if state then
-        antiKickStartTime = tick()
-        AKStatusDot.BackgroundColor3 = Color3.fromRGB(110, 80, 220)
-        AKStatusLbl.Text = "active"
-        AKStatusLbl.TextColor3 = Color3.fromRGB(138, 118, 200)
-    else
-        antiKickStartTime = nil
-        AKStatusDot.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        AKStatusLbl.Text = "disabled"
-        AKStatusLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-    end
-    config.antiKick = state
-    saveConfig()
-end
-
-local AKBtn = Instance.new("TextButton")
-AKBtn.Size = UDim2.new(1, 0, 1, 0)
-AKBtn.BackgroundTransparency = 1
-AKBtn.Text = ""
-AKBtn.Parent = AKRow
-AKBtn.MouseButton1Click:Connect(function()
-    setAntiKickActive(not antiKickEnabled)
-end)
-
-if config.antiKick then
-    setAntiKickActive(true)
-end
-
--- uptime
-local UptimeRow = Instance.new("Frame")
-UptimeRow.Size = UDim2.new(1, -16, 0, 44)
-UptimeRow.Position = UDim2.new(0, 8, 0, 98)
-UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-UptimeRow.BorderSizePixel = 0
-UptimeRow.Parent = miscPage
-Instance.new("UICorner", UptimeRow).CornerRadius = UDim.new(0, 5)
-
-local UptimeRS = Instance.new("UIStroke")
-UptimeRS.Color = Color3.fromRGB(36, 36, 36)
-UptimeRS.Thickness = 1
-UptimeRS.Parent = UptimeRow
-
-local UptimeTitleLbl = Instance.new("TextLabel")
-UptimeTitleLbl.Size = UDim2.new(1, -40, 0, 16)
-UptimeTitleLbl.Position = UDim2.new(0, 34, 0, 4)
-UptimeTitleLbl.BackgroundTransparency = 1
-UptimeTitleLbl.Text = "uptime"
-UptimeTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-UptimeTitleLbl.TextSize = 9
-UptimeTitleLbl.Font = Enum.Font.Gotham
-UptimeTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-UptimeTitleLbl.Parent = UptimeRow
-
-local UptimeValueLbl = Instance.new("TextLabel")
-UptimeValueLbl.Size = UDim2.new(1, -40, 0, 20)
-UptimeValueLbl.Position = UDim2.new(0, 34, 0, 20)
-UptimeValueLbl.BackgroundTransparency = 1
-UptimeValueLbl.Text = "00:00:00"
-UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
-UptimeValueLbl.TextSize = 14
-UptimeValueLbl.Font = Enum.Font.GothamBold
-UptimeValueLbl.TextXAlignment = Enum.TextXAlignment.Left
-UptimeValueLbl.Parent = UptimeRow
-
-local KicksRow = Instance.new("Frame")
-KicksRow.Size = UDim2.new(1, -16, 0, 44)
-KicksRow.Position = UDim2.new(0, 8, 0, 150)
-KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-KicksRow.BorderSizePixel = 0
-KicksRow.Parent = miscPage
-Instance.new("UICorner", KicksRow).CornerRadius = UDim.new(0, 5)
-
-local KicksRS = Instance.new("UIStroke")
-KicksRS.Color = Color3.fromRGB(36, 36, 36)
-KicksRS.Thickness = 1
-KicksRS.Parent = KicksRow
-
-local KicksTitleLbl = Instance.new("TextLabel")
-KicksTitleLbl.Size = UDim2.new(1, -40, 0, 16)
-KicksTitleLbl.Position = UDim2.new(0, 34, 0, 4)
-KicksTitleLbl.BackgroundTransparency = 1
-KicksTitleLbl.Text = "kicks prevented"
-KicksTitleLbl.TextColor3 = Color3.fromRGB(60, 60, 60)
-KicksTitleLbl.TextSize = 9
-KicksTitleLbl.Font = Enum.Font.Gotham
-KicksTitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-KicksTitleLbl.Parent = KicksRow
-
-local KicksValueLbl = Instance.new("TextLabel")
-KicksValueLbl.Size = UDim2.new(1, -40, 0, 20)
-KicksValueLbl.Position = UDim2.new(0, 34, 0, 20)
-KicksValueLbl.BackgroundTransparency = 1
-KicksValueLbl.Text = "0"
-KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
-KicksValueLbl.TextSize = 14
-KicksValueLbl.Font = Enum.Font.GothamBold
-KicksValueLbl.TextXAlignment = Enum.TextXAlignment.Left
-KicksValueLbl.Parent = KicksRow
-
-local function formatTime(seconds)
-    local h = math.floor(seconds / 3600)
-    local m = math.floor((seconds % 3600) / 60)
-    local s = math.floor(seconds % 60)
-    return string.format("%02d:%02d:%02d", h, m, s)
-end
-
-RunService.Heartbeat:Connect(function()
-    if antiKickEnabled and antiKickStartTime then
-        UptimeValueLbl.Text = formatTime(tick() - antiKickStartTime)
-        UptimeValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
-        UptimeRS.Color = Color3.fromRGB(70, 46, 140)
-        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
-    else
-        UptimeValueLbl.Text = "00:00:00"
-        UptimeValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
-        UptimeRS.Color = Color3.fromRGB(36, 36, 36)
-        UptimeRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-    end
-    KicksValueLbl.Text = tostring(antiKickCount)
-    if antiKickCount > 0 then
-        KicksValueLbl.TextColor3 = Color3.fromRGB(132, 112, 198)
-        KicksRS.Color = Color3.fromRGB(70, 46, 140)
-        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 20, 44)
-    else
-        KicksValueLbl.TextColor3 = Color3.fromRGB(86, 86, 86)
-        KicksRS.Color = Color3.fromRGB(36, 36, 36)
-        KicksRow.BackgroundColor3 = Color3.fromRGB(26, 26, 26)
-    end
-end)
-
--- ═══════════════════════════════════════
---  MINIMIZE / CLOSE
--- ═══════════════════════════════════════
-MinBtn.MouseButton1Click:Connect(function()
-    Frame.Visible = false
-    StarBtn.Visible = true
-    pulseTween:Play()
-end)
-
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
-end)
-
--- ═══════════════════════════════════════
---  STAR CONNECTIONS (down here so Frame exists)
--- ═══════════════════════════════════════
-StarBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        starDragging  = true
-        starMoved     = false
-        starDragStart = i.Position
-        starPosStart  = StarBtn.Position
-    end
-end)
-
-StarBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        local wasClick = not starMoved
-        starDragging   = false
-        starMoved      = false
-        if wasClick then
-            Frame.Visible        = true
-            StarBtn.Visible      = false
-            pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-        end
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - starDragStart
-        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
-            starMoved = true
-        end
-        if starMoved then
-            StarBtn.Position = UDim2.new(
-                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
-                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
-            )
-        end
-    end
-end)
-
--- ═══════════════════════════════════════
---  LOOP
--- ═══════════════════════════════════════
-RunService.Heartbeat:Connect(function()
-    local now = tick()
-    for _, m in ipairs(MACHINES) do
-        if m.enabled then
-            local last = lastRenew[m.tier] or 0
-            if now - last >= RENEW_INTERVAL then
-                lastRenew[m.tier] = now
-                fireRenew(m)
-            end
-        end
-    end
-end)
-
-switchTab("main")
+Instance.new("UICorner", AKBox).Corner
