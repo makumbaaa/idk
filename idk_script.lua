@@ -137,45 +137,6 @@ local starDragging = false
 local starMoved    = false
 local starDragStart, starPosStart
 
--- star connections (down here so Frame exists)
-StarBtn.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        starDragging  = true
-        starMoved     = false
-        starDragStart = i.Position
-        starPosStart  = StarBtn.Position
-    end
-end)
-
-StarBtn.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.MouseButton1 then
-        local wasClick = not starMoved
-        starDragging   = false
-        starMoved      = false
-        if wasClick then
-            Frame.Visible        = true
-            StarBtn.Visible      = false
-            pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
-        end
-    end
-end)
-
-UIS.InputChanged:Connect(function(i)
-    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-        local d = i.Position - starDragStart
-        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
-            starMoved = true
-        end
-        if starMoved then
-            StarBtn.Position = UDim2.new(
-                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
-                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
-            )
-        end
-    end
-end)
-
 -- ═══════════════════════════════════════
 --  MAIN FRAME
 -- ═══════════════════════════════════════
@@ -746,6 +707,47 @@ end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
+end)
+
+-- ═══════════════════════════════════════
+--  STAR CONNECTIONS (down here so Frame exists)
+-- ═══════════════════════════════════════
+StarBtn.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        starDragging  = true
+        starMoved     = false
+        starDragStart = i.Position
+        starPosStart  = StarBtn.Position
+    end
+end)
+
+StarBtn.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local wasClick = not starMoved
+        starDragging   = false
+        starMoved      = false
+        if wasClick then
+            Frame.Visible        = true
+            StarBtn.Visible      = false
+            pulseTween:Cancel()
+            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        end
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - starDragStart
+        if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
+            starMoved = true
+        end
+        if starMoved then
+            StarBtn.Position = UDim2.new(
+                starPosStart.X.Scale, starPosStart.X.Offset + d.X,
+                starPosStart.Y.Scale, starPosStart.Y.Offset + d.Y
+            )
+        end
+    end
 end)
 
 -- ═══════════════════════════════════════
