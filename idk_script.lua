@@ -132,9 +132,9 @@ local pulseTween = TweenService:Create(StarLabel,
     { TextColor3 = Color3.fromRGB(255, 220, 80) }
 )
 
--- ── star drag — tracks movement so clicks still fire ──
+-- star drag — fixed declaration order
 local starDragging = false
-local starMoved    = false   -- KEY: did mouse actually move?
+local starMoved    = false
 local starDragStart, starPosStart
 
 StarBtn.InputBegan:Connect(function(i)
@@ -148,22 +148,24 @@ end)
 
 StarBtn.InputEnded:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        local wasClick = not starMoved
         starDragging = false
-        -- if mouse never moved it's a clean click → restore
-        if not starMoved then
-            Frame.Visible  = true
-            StarBtn.Visible = false
-            pulseTween:Cancel()
-            StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+        starMoved    = false
+        if wasClick then
+            -- defer one frame so Frame is guaranteed to exist
+            task.defer(function()
+                Frame.Visible   = true
+                StarBtn.Visible = false
+                pulseTween:Cancel()
+                StarLabel.TextColor3 = Color3.fromRGB(240, 185, 40)
+            end)
         end
-        starMoved = false
     end
 end)
 
 UIS.InputChanged:Connect(function(i)
     if starDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
         local d = i.Position - starDragStart
-        -- only count as drag if moved more than 4px
         if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then
             starMoved = true
         end
