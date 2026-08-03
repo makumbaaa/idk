@@ -524,6 +524,40 @@ if ThemeManager and SaveManager then
     SaveManager:BuildConfigSection(SettingsTab)          -- adds "Configuration" groupbox
     ThemeManager:ApplyToTab(SettingsTab)                  -- adds "Themes" + "Theme list" groupboxes
 
+    -- Background Image input: auto-resolve an rbxassetid:// decal to its Texture ID
+    -- (Roblox ImageLabel.Image needs the texture URL, not the decal asset ID).
+    local bgInput = Options.BackgroundImage
+    if bgInput then
+        local function applyResolvedImage(raw)
+            if not raw or raw == "" then return end
+            -- Accept "rbxassetid://1234" or just "1234"
+            local id = tostring(raw):match("(%d+)$")
+            if not id then return end
+
+            task.spawn(function()
+                local ok, objects = pcall(function()
+                    return game:GetObjects("rbxassetid://" .. id)
+                end)
+                if ok and type(objects) == "table" then
+                    local decal = objects[1]
+                    if decal and decal:IsA("Decal") and decal.Texture ~= "" then
+                        -- Push the resolved texture into Obsidian's background ImageLabel
+                        pcall(function()
+                            Library.Scheme.BackgroundImage = decal.Texture
+                            if Library.UpdateColorsUsingRegistry then
+                                Library:UpdateColorsUsingRegistry()
+                            end
+                        end)
+                    end
+                end
+            end)
+        end
+
+        bgInput:OnChanged(applyResolvedImage)
+        -- Run once on already-populated values (e.g. autoloaded theme)
+        if bgInput.Value then applyResolvedImage(bgInput.Value) end
+    end
+
     SaveManager:LoadAutoloadConfig()
 elseif ThemeManager and not SaveManager then
     ThemeManager:SetLibrary(Library)
