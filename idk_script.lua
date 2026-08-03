@@ -10,7 +10,7 @@ local ContentProvider = game:GetService("ContentProvider")
 -- ═══════════════════════════════════════
 --  CONFIGURATION (SAVE/LOAD)
 -- ═══════════════════════════════════════
-local CONFIG_FILE = "idk_script_config.json"
+local CONFIG_FILE = "idk_hub_config.json"
 
 local config = {
     antiKick = false,
@@ -27,7 +27,7 @@ local function saveConfig()
             writefile(CONFIG_FILE, HttpService:JSONEncode(config))
         end)
         if not success then
-            warn("[idk script] Failed to save config: " .. tostring(err))
+            warn("[idk hub] Failed to save config: " .. tostring(err))
         end
     end
 end
