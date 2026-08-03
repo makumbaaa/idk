@@ -166,7 +166,7 @@ for _, m in ipairs(MACHINES) do
     local toggle = machineRenewBox:AddToggle("Machine_" .. m.tier, {
         Text    = m.label,
         Default = false,
-        Tooltip = "Renews '" .. m.tier .. "' machine every 55s ",
+        Tooltip = "Renews '" .. m.tier .. "' machine ",
     })
 
     -- Renewal counter
