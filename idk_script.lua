@@ -116,13 +116,16 @@ ScreenGui.Parent = PlayerGui
 
 local ICON_DECAL_ID = "72164665440799"
 
-local StarBtn = Instance.new("TextButton")
-StarBtn.Size = UDim2.new(0, 64, 0, 64)
-StarBtn.Position = UDim2.new(0, 20, 0.5, -32)
+local StarBtn = Instance.new("ImageButton")
+StarBtn.Size = UDim2.new(0, 76, 0, 76)
+StarBtn.Position = UDim2.new(0, 20, 0.5, -38)
 StarBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
 StarBtn.BorderSizePixel = 0
 StarBtn.ClipsDescendants = true
-StarBtn.Text = ""
+StarBtn.Image = "rbxassetid://" .. ICON_DECAL_ID
+StarBtn.ImageColor3 = Color3.fromRGB(255, 255, 255)
+StarBtn.ScaleType = Enum.ScaleType.Crop
+StarBtn.AutoButtonColor = false
 StarBtn.Visible = false
 StarBtn.ZIndex = 10
 StarBtn.Parent = ScreenGui
@@ -135,32 +138,6 @@ local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(62, 62, 62)
 Stroke.Parent = StarBtn
 
-local StarFallback = Instance.new("TextLabel")
-StarFallback.Size = UDim2.new(1, 0, 1, 0)
-StarFallback.BackgroundTransparency = 1
-StarFallback.Text = "*"
-StarFallback.TextColor3 = Color3.fromRGB(185, 185, 185)
-StarFallback.TextSize = 34
-StarFallback.Font = Enum.Font.GothamBold
-StarFallback.ZIndex = 9
-StarFallback.Parent = StarBtn
-
--- Ikona
-local StarIcon = Instance.new("ImageLabel")
-StarIcon.Size = UDim2.new(1, 0, 1, 0)
-StarIcon.Position = UDim2.new(0, 0, 0, 0)
-StarIcon.BackgroundTransparency = 1
-StarIcon.ClipsDescendants = true
-StarIcon.Image = "rbxassetid://" .. ICON_DECAL_ID
-StarIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-StarIcon.ScaleType = Enum.ScaleType.Crop
-StarIcon.ZIndex = 10
-StarIcon.Parent = StarBtn
-
-local StarIconCorner = Instance.new("UICorner")
-StarIconCorner.CornerRadius = UDim.new(1, 0)
-StarIconCorner.Parent = StarIcon
-
 local function resolveIconImage()
     local ok, objects = pcall(function()
         return game:GetObjects("rbxassetid://" .. ICON_DECAL_ID)
@@ -169,17 +146,13 @@ local function resolveIconImage()
     if ok and type(objects) == "table" then
         local decal = objects[1]
         if decal and decal:IsA("Decal") and decal.Texture ~= "" then
-            StarIcon.Image = decal.Texture
+            StarBtn.Image = decal.Texture
         end
     end
 
     pcall(function()
-        ContentProvider:PreloadAsync({ StarIcon })
+        ContentProvider:PreloadAsync({ StarBtn })
     end)
-
-    if StarIcon.Image ~= "" then
-        StarFallback.Visible = false
-    end
 end
 
 task.spawn(resolveIconImage)
