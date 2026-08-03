@@ -55,7 +55,7 @@ end
 
 local function fireRenew(machine)
     local ok, err = pcall(function()
-        Event:InvokeServer(machine.tier, machine.slot, 600)
+        Event:InvokeServer(machine.tier, machine.slot, 10000)
     end)
     if ok then
         machine.count += 1
@@ -166,7 +166,7 @@ for _, m in ipairs(MACHINES) do
     local toggle = machineRenewBox:AddToggle("Machine_" .. m.tier, {
         Text    = m.label,
         Default = false,
-        Tooltip = "Renews '" .. m.tier .. "' machine every 55s (+600s)",
+        Tooltip = "Renews '" .. m.tier .. "' machine every 55s ",
     })
 
     -- Renewal counter
