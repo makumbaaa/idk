@@ -482,19 +482,42 @@ local Library
 local ThemeManager
 local SaveManager
 
-local ok_lib, err_lib = pcall(function()
-    Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-end)
-if not ok_lib then
-    error("[idk hub] Failed to load Obsidian Library: " .. tostring(err_lib))
+-- safeLoad: HttpGet can return an HTML error page (rate-limit / 404) which
+-- makes loadstring() return nil -> calling nil() = "attempt to call a nil value".
+local function safeLoad(url, label)
+    local raw
+    local okFetch, fetchErr = pcall(function() raw = game:HttpGet(url) end)
+    if not okFetch or type(raw) ~= "string" or raw == "" then
+        warn("[idk hub] HttpGet failed for " .. label .. ": " .. tostring(fetchErr))
+        return nil
+    end
+    local p = raw:sub(1,9):lower()
+    if p:find("<!doctype") or p:sub(1,6) == "<html>" then
+        warn("[idk hub] Got HTML back for " .. label .. " — likely rate-limited or 404")
+        return nil
+    end
+    local fn, compileErr = loadstring(raw)
+    if not fn then
+        warn("[idk hub] loadstring compile error for " .. label .. ": " .. tostring(compileErr))
+        return nil
+    end
+    local okRun, result = pcall(fn)
+    if not okRun then
+        warn("[idk hub] Runtime error while loading " .. label .. ": " .. tostring(result))
+        return nil
+    end
+    return result
 end
 
-pcall(function()
-    ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
-end)
-pcall(function()
-    SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
-end)
+print("[idk hub] >>> checkpoint 1: fetching Obsidian Library...")
+Library = safeLoad(repo .. "Library.lua", "Library.lua")
+if not Library then
+    error("[idk hub] FATAL: Library failed to load. Read the warnings above.")
+end
+print("[idk hub] >>> checkpoint 2: Library loaded OK")
+
+ThemeManager = safeLoad(repo .. "addons/ThemeManager.lua", "ThemeManager.lua")
+SaveManager  = safeLoad(repo .. "addons/SaveManager.lua",  "SaveManager.lua")
 
 if not ThemeManager then warn("[idk hub] ThemeManager failed to load — themes tab will be missing.") end
 if not SaveManager  then warn("[idk hub] SaveManager failed to load — config will not persist.")    end
@@ -890,7 +913,7 @@ makePopupButton(10,  "⏮", function()
     pcall(function() spotifyPlayerCommand("POST", "/me/player/previous") end)
 end)
 local playPauseBtn = makePopupButton(48, "⏯", function()
-    if isPlaying then
+    if spotifyIsPlaying then
         pcall(function() spotifyPlayerCommand("PUT", "/me/player/pause") end)
     else
         pcall(function() spotifyPlayerCommand("PUT", "/me/player/play") end)
