@@ -717,6 +717,31 @@ do
 end
 
 -- ═══════════════════════════════════════
+--  NOTIFICATIONS TAB — Webhook + Script Updates
+-- ═══════════════════════════════════════
+do
+    local lb = NotificationsTab:AddLeftGroupbox("webhook")
+    lb:AddLabel("Webhook URL (for notifications):", true)
+    local webhookUrl = lb:AddInput("WebhookURL", {
+        Placeholder = "https://discord.com/api/webhooks/...",
+        Default     = "",
+    })
+    lb:AddButton("Test webhook", function()
+        local url = webhookUrl.Value or ""
+        if url == "" then
+            Library:Notify("Enter webhook URL", 4)
+            return
+        end
+        Library:Notify("Webhook saved (test later)", 4)
+    end)
+end
+do
+    local lb = NotificationsTab:AddRightGroupbox("script updates")
+    lb:AddLabel("Script update notifications: enabled", true)
+    lb:AddLabel("Latest: v6", true)
+end
+
+-- ═══════════════════════════════════════
 --  SPOTIFY TAB — Setup + Now Playing + popup window
 -- ═══════════════════════════════════════
 local spotifySetupBox   = SpotifyTab:AddLeftGroupbox("Setup", "key")
