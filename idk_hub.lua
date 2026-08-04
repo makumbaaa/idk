@@ -12,6 +12,13 @@ local UIS               = game:GetService("UserInputService")
 local HttpService       = game:GetService("HttpService")
 local ContentProvider   = game:GetService("ContentProvider")
 
+-- LocalPlayer's PlayerGui; defined up here so the Spotify popup ScreenGui (and
+-- the icon ScreenGui further down) can parent to it. Previously this was only
+-- declared at line ~1099, so the Spotify popup section at line 716 was assigning
+-- a *nil* global `PlayerGui` to SpotifyPopupGui.Parent -> "attempt to call a
+-- nil value" at top-level execution.
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+
 -- RemoteEvent that resets the AFK idle timer
 local antiAfkRemote = ReplicatedStorage.Network["Idle Tracking: Stop Timer"]
 
@@ -1096,7 +1103,9 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.DisplayOrder = 999999  -- always render above Obsidian's ScreenGui
 
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+-- PlayerGui is declared at the top of the file (next to the other services) so
+-- every ScreenGui section can reuse it. Only destroy any pre-existing icon GUI
+-- with the same name before re-parenting ours.
 local oldGui = PlayerGui:FindFirstChild(ScreenGui.Name)
 if oldGui then oldGui:Destroy() end
 ScreenGui.Parent = PlayerGui
