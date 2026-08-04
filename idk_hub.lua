@@ -133,7 +133,7 @@ local Window = Library:CreateWindow({
 -- ═══════════════════════════════════════
 --  TABS (5 preserved from the original)
 -- ═══════════════════════════════════════
-local MainTab      = Window:AddTab("main",       "home")
+local MainTab      = Window:AddTab("about",       "info")
 local AutoFarmTab  = Window:AddTab("auto farm",  "tractor")
 local AutoHatchTab = Window:AddTab("auto hatch", "egg")
 local EventTab     = Window:AddTab("event",      "calendar")
@@ -141,8 +141,31 @@ local MiscTab      = Window:AddTab("misc",       "shield")
 
 -- Placeholder content for empty tabs
 do
-    local lb = MainTab:AddLeftGroupbox("main")
-    lb:AddLabel("coming soon", true)
+    local AboutBox = MainTab:AddLeftGroupbox("about")
+    AboutBox:AddLabel("Script:   idk hub", true)
+    AboutBox:AddLabel("Version:  v6", true)
+    AboutBox:AddLabel("Creator:  makumbaaa", true)
+    local updateLabel = AboutBox:AddLabel("Last update: loading...", true)
+
+    -- Fetch the latest commit date on the main branch from the GitHub API.
+    -- shows "YYYY-MM-DD HH:MM UTC" once it arrives.
+    task.spawn(function()
+        local api = "https://api.github.com/repos/makumbaaa/idk/commits/main"
+        local ok, body = pcall(function()
+            return game:HttpGet(api)
+        end)
+        if not ok or type(body) ~= "string" or body == "" then
+            updateLabel:SetText("Last update: unavailable")
+            return
+        end
+        -- Parse the commit date from the JSON. Avoids needing HttpService:JSONDecode.
+        local date = body:match('"date":%s*"(%d%d%d%d%-%d%d%-%d%d)')
+        if date then
+            updateLabel:SetText("Last update: " .. date)
+        else
+            updateLabel:SetText("Last update: unknown")
+        end
+    end)
 end
 do
     local lb = AutoFarmTab:AddLeftGroupbox("auto farm")
@@ -511,56 +534,52 @@ MenuGroup:AddDivider()
 
 -- Reload: tear down this instance, then re-fetch and re-run the script from SCRIPT_URL.
 -- Useful for picking up edits committed to GitHub without unload+execute.
-MenuGroup:AddButton({
-    Text    = "Reload script",
-    Tooltip = "Fetches the latest version from GitHub and replaces this instance.",
-    Func    = function()
-        -- Show a quick notification before the window disappears
-        if Library.Notify then
-            pcall(function() Library:Notify("Reloading idk hub...", 3) end)
+MenuGroup:AddButton("Reload script", function()
+    -- Show a quick notification before the window disappears
+    if Library.Notify then
+        pcall(function() Library:Notify("Reloading idk hub...", 3) end)
+    end
+
+    task.spawn(function()
+        -- 1) Fetch the new source first. If it fails, abort the reload entirely.
+        local okFetch, source = pcall(function()
+            return game:HttpGet(SCRIPT_URL)
+        end)
+
+        if not okFetch or type(source) ~= "string" or source == "" then
+            warn("[idk hub] Reload aborted: failed to fetch " .. SCRIPT_URL)
+            if Library.Notify then
+                pcall(function() Library:Notify("Reload failed (fetch error)", 4) end)
+            end
+            return
         end
 
-        task.spawn(function()
-            -- 1) Fetch the new source first. If it fails, abort the reload entirely.
-            local okFetch, source = pcall(function()
-                return game:HttpGet(SCRIPT_URL)
-            end)
-
-            if not okFetch or type(source) ~= "string" or source == "" then
-                warn("[idk hub] Reload aborted: failed to fetch " .. SCRIPT_URL)
-                if Library.Notify then
-                    pcall(function() Library:Notify("Reload failed (fetch error)", 4) end)
-                end
-                return
-            end
-
-            -- 2) Compile the new source separately from the HttpGet result.
-            -- If there's a syntax error, abort and keep the running instance intact.
-            local okCompile, compiled = pcall(function()
-                return loadstring(source)
-            end)
-            if not okCompile or type(compiled) ~= "function" then
-                warn("[idk hub] Reload aborted: syntax error in fetched script")
-                if Library.Notify then
-                    pcall(function() Library:Notify("Reload failed (syntax error)", 4) end)
-                end
-                return
-            end
-
-            -- 3) Tear down the current instance cleanly. OnUnload destroys the icon ScreenGui.
-            pcall(function() Library:Unload() end)
-
-            -- 4) Give Roblox a frame to finish cleanup before re-running.
-            task.wait(0.05)
-
-            -- 5) Run the freshly compiled code.
-            local okRun, runErr = pcall(compiled)
-            if not okRun then
-                warn("[idk hub] Re-loaded script errored at runtime: " .. tostring(runErr))
-            end
+        -- 2) Compile the new source separately.
+        -- If there's a syntax error, abort and keep the running instance intact.
+        local okCompile, compiled = pcall(function()
+            return loadstring(source)
         end)
-    end,
-})
+        if not okCompile or type(compiled) ~= "function" then
+            warn("[idk hub] Reload aborted: syntax error in fetched script")
+            if Library.Notify then
+                pcall(function() Library:Notify("Reload failed (syntax error)", 4) end)
+            end
+            return
+        end
+
+        -- 3) Tear down the current instance cleanly. OnUnload destroys the icon ScreenGui.
+        pcall(function() Library:Unload() end)
+
+        -- 4) Give Roblox a frame to finish cleanup before re-running.
+        task.wait(0.05)
+
+        -- 5) Run the freshly compiled code.
+        local okRun, runErr = pcall(compiled)
+        if not okRun then
+            warn("[idk hub] Re-loaded script errored at runtime: " .. tostring(runErr))
+        end
+    end)
+end)
 
 MenuGroup:AddButton("Unload", function()
     Library:Unload()
