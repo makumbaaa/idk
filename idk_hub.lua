@@ -780,7 +780,7 @@ spotifySetupBox:AddButton("Disconnect", function()
     spotify.expires_at    = 0
     saveSpotifyTokens()
     updateSpotifyStatusText()
-    if spotifyArtImage    then spotifyArtImage:SetImage("") end
+    if spotifyArtImage    then spotifyArtImage:SetImage("rbxasset://textures/transparent.png") end
     if spotifyTrackLabel  then spotifyTrackLabel:SetText("(not playing)") end
     if spotifyArtistLabel then spotifyArtistLabel:SetText("") end
     if spotifyProgressLabel then spotifyProgressLabel:SetText("--:-- / --:--") end
@@ -794,7 +794,10 @@ spotifySetupBox:AddLabel("Play/pause/skip requires Spotify Premium.", true)
 
 -- ── Right groupbox: Now Playing ──
 spotifyArtImage   = spotifyNowBox:AddImage("SpotifyAlbumArt", {
-    Image      = "",
+    -- Use Roblox's built-in transparent texture instead of empty string: newer
+    -- Obsidian builds validate `Image` (rejects "") with
+    -- "Image must be a valid Roblox asset or a valid URL or a valid lucide icon".
+    Image      = "rbxasset://textures/transparent.png",
     ScaleType  = Enum.ScaleType.Fit,
     Height     = 100,
 })
@@ -977,7 +980,7 @@ local function applyNowPlaying(playerState, queuePreview)
     if not playerState.item then
         spotifyIsPlaying = false
         spotifyTotalMs   = 0
-        if spotifyArtImage       then spotifyArtImage:SetImage("") end
+        if spotifyArtImage       then spotifyArtImage:SetImage("rbxasset://textures/transparent.png") end
         if spotifyTrackLabel     then spotifyTrackLabel:SetText("Track: (nothing playing)") end
         if spotifyArtistLabel    then spotifyArtistLabel:SetText("Artist: ") end
         if spotifyProgressLabel  then spotifyProgressLabel:SetText("Progress: --:-- / --:--") end
