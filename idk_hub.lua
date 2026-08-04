@@ -597,7 +597,7 @@ local Toggles = Library.Toggles
 print("[idk hub] >>>> ck 4: calling Library:CreateWindow...")
 local Window = Library:CreateWindow({
     Title  = "idk hub",
-    Footer = "0.5",
+    Footer = "v6",
     Center = true,
     AutoShow = true,
 })
@@ -609,15 +609,16 @@ print("[idk hub] >>>> ck 4b: window created OK =", Window)
 local AboutTab     = Window:AddTab("about",       "info")
 local AutoFarmTab  = Window:AddTab("auto farm",  "tractor")
 local AutoHatchTab = Window:AddTab("auto hatch", "egg")
-local SpotifyTab   = Window:AddTab("spotify",     "music")
 local EventTab     = Window:AddTab("event",      "calendar")
+local NotificationsTab = Window:AddTab("notifications", "bell")
+local SpotifyTab   = Window:AddTab("spotify",     "music")
 local MiscTab      = Window:AddTab("misc",       "shield")
 
 -- Placeholder content for empty tabs
 do
     local AboutBox = AboutTab:AddLeftGroupbox("about")
     AboutBox:AddLabel("Script:   idk hub", true)
-    AboutBox:AddLabel("Version:  0.5", true)
+    AboutBox:AddLabel("Version:  v6", true)
     AboutBox:AddLabel("Creator:  makumbaaa", true)
     local updateLabel     = AboutBox:AddLabel("Last update: loading...", true)
     local relativeLabel   = AboutBox:AddLabel("Latest update: loading...", true)
