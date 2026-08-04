@@ -1062,8 +1062,8 @@ task.spawn(function()
     while true do
         task.wait(SPOTIFY_POLL_SEC)
         if Library.Unloaded then break end
-        if not httpRequestFn then goto continue end
-        if spotify.access_token == "" then goto continue end
+        if not httpRequestFn then continue end
+        if spotify.access_token == "" then continue end
 
         -- Refresh token if expired (or about to expire)
         if os.time() >= spotify.expires_at and spotify.refresh_token ~= "" then
@@ -1076,7 +1076,7 @@ task.spawn(function()
                 spotify.access_token = ""
                 saveSpotifyTokens()
                 updateSpotifyStatusText()
-                goto continue
+                continue
             end
         end
 
@@ -1090,7 +1090,7 @@ task.spawn(function()
                     if ok then saveSpotifyTokens() end
                 end
             end
-            goto continue
+            continue
         end
 
         -- Optionally also GET /me/player/queue for the upcoming-track preview.
@@ -1109,7 +1109,6 @@ task.spawn(function()
         end
 
         applyNowPlaying(playerState, queuePreview)
-        ::continue::
     end
 end)
 
