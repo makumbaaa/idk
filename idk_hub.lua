@@ -1,9 +1,16 @@
 -- idk hub (v6) — Obsidian UI Library native
 -- Preserves all original logic: anti-kick, luck machine renewer, animated sprite-sheet icon.
 
+-- ▶ DIAGNOSTIC VERSION STAMP — if you don't see this exact line printed when
+-- you run the script, your executor is loading a CACHED OLD version, not the
+-- file you uploaded. Fix that first (clear executor cache / use a cache-buster
+-- in the URL / wait 5 minutes for GitHub CDN to expire).
+print("[idk hub] >>>>>> DIAG-START v=0xA1B2 (markers present) — chunk started OK")
+
 -- ═══════════════════════════════════════
 --  SERVICES & CONSTANTS
 -- ═══════════════════════════════════════
+print("[idk hub] >>>> ck 1: getting services...")
 local Players           = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService        = game:GetService("RunService")
@@ -11,19 +18,41 @@ local TweenService      = game:GetService("TweenService")
 local UIS               = game:GetService("UserInputService")
 local HttpService       = game:GetService("HttpService")
 local ContentProvider   = game:GetService("ContentProvider")
+print("[idk hub] >>>> ck 2: services OK")
 
 -- LocalPlayer's PlayerGui; defined up here so the Spotify popup ScreenGui (and
 -- the icon ScreenGui further down) can parent to it. Previously this was only
 -- declared at line ~1099, so the Spotify popup section at line 716 was assigning
 -- a *nil* global `PlayerGui` to SpotifyPopupGui.Parent -> "attempt to call a
 -- nil value" at top-level execution.
+print("[idk hub] >>>> ck 3a: about to Wait for PlayerGui (LocalPlayer =", Players.LocalPlayer, ")")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+print("[idk hub] >>>> ck 3b: PlayerGui OK =", PlayerGui:GetFullName())
 
--- RemoteEvent that resets the AFK idle timer
-local antiAfkRemote = ReplicatedStorage.Network["Idle Tracking: Stop Timer"]
+-- Remotes are resolved lazily inside task.spawn so top-level execution never
+-- yields or hard-errors if the game hasn't replicated Network yet.
+local antiAfkRemote = nil
+local Event         = nil
 
--- RemoteFunction/Invoke for the luck machines
-local Event = ReplicatedStorage.Network.GardenChanceMachine_AddTime
+task.spawn(function()
+    local ok, Network = pcall(function()
+        return ReplicatedStorage:WaitForChild("Network", 20)
+    end)
+    if not ok or not Network then
+        warn("[idk hub] ReplicatedStorage.Network not found — anti-kick & luck machine disabled")
+        return
+    end
+
+    local okAfk, afk = pcall(function()
+        return Network:WaitForChild("Idle Tracking: Stop Timer", 10)
+    end)
+    if okAfk and afk then antiAfkRemote = afk end
+
+    local okEv, ev = pcall(function()
+        return Network:WaitForChild("GardenChanceMachine_AddTime", 10)
+    end)
+    if okEv and ev then Event = ev end
+end)
 
 local RENEW_INTERVAL = 55  -- seconds between successive renewals of the same machine
 
@@ -74,7 +103,7 @@ local function formatTime(seconds)
 end
 
 local function resetIdleTimer()
-    if antiKickEnabled then
+    if antiKickEnabled and antiAfkRemote then
         pcall(function()
             antiAfkRemote:FireServer()
         end)
@@ -82,6 +111,10 @@ local function resetIdleTimer()
 end
 
 local function fireRenew(machine)
+    if not Event then
+        warn("[idk hub] -> " .. machine.tier .. ": Event remote not ready yet")
+        return
+    end
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 10000)
     end)
@@ -198,19 +231,17 @@ end
 -- SHA-256 in pure Lua (small vendored impl). Used if executors don't expose `crypt.hash`.
 -- Returns a 32-byte binary string.
 local function pureLuaSha256(input)
-    -- SHA-256 constants (decimal, not hex, so strict Lua 5.1 `loadstring` parsers
-    -- accept them: 5.1 can choke on hex literals >= 2^31, and several executor
-    -- loadstrings reject them outright).
-    local h = { 1779033703, 3144134277, 1013904242, 2773480762,
-                1359893119, 2600822924, 528734635, 1541459225 }
-    local k = { 1116352408, 1899447441, 3049323471, 3921009573, 961987163, 1508970993, 2453635748, 2870763221,
-                3624381080, 310598401, 607225278, 1426881987, 1925078388, 2162078206, 2614888103, 3248222580,
-                3835390401, 4022224774, 264347078, 604807628, 770255983, 1249150122, 1555081692, 1996064986,
-                2554220882, 2821834349, 2952996808, 3210313671, 3336571891, 3584528711, 113926993, 338241895,
-                666307205, 773529912, 1294757372, 1396182291, 1695183700, 1986661051, 2177026350, 2456956037,
-                2730485921, 2820302411, 3259730800, 3345764771, 3516065817, 3600352804, 4094571909, 275423344,
-                430227734, 506948616, 659060556, 883997877, 958139571, 1322822218, 1537002063, 1747873779,
-                1955562222, 2024104815, 2227730452, 2361852424, 2428436474, 2756734187, 3204031479, 3329325298 }
+    -- SHA-256 constants
+    local h = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 }
+    local k = { 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 }
 
     -- Pure-Lua 5.1 bitwise helpers (no Luau / 5.3 `&`, `~`, `<<`, `>>` operators).
     -- We work on 32-bit unsigned ints stored in normal Lua numbers.
@@ -251,7 +282,7 @@ local function pureLuaSha256(input)
     -- Pre-processing: append 0x80, pad to 56 mod 64, append 8-byte big-endian length
     local bytes = { input:byte(1, -1) }
     local len = #bytes
-    bytes[#bytes + 1] = 128
+    bytes[#bytes + 1] = 0x80
     while #bytes % 64 ~= 56 do bytes[#bytes + 1] = 0 end
     local bitLen = len * 8
     for i = 7, 0, -1 do bytes[#bytes + 1] = math.floor(bitLen / 2^(i*8)) % 256 end
@@ -461,19 +492,42 @@ local Library
 local ThemeManager
 local SaveManager
 
-local ok_lib, err_lib = pcall(function()
-    Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-end)
-if not ok_lib then
-    error("[idk hub] Failed to load Obsidian Library: " .. tostring(err_lib))
+-- safeLoad: HttpGet can return an HTML error page (rate-limit / 404) which
+-- makes loadstring() return nil -> calling nil() = "attempt to call a nil value".
+local function safeLoad(url, label)
+    local raw
+    local okFetch, fetchErr = pcall(function() raw = game:HttpGet(url) end)
+    if not okFetch or type(raw) ~= "string" or raw == "" then
+        warn("[idk hub] HttpGet failed for " .. label .. ": " .. tostring(fetchErr))
+        return nil
+    end
+    local p = raw:sub(1,9):lower()
+    if p:find("<!doctype") or p:sub(1,6) == "<html>" then
+        warn("[idk hub] Got HTML back for " .. label .. " — likely rate-limited or 404")
+        return nil
+    end
+    local fn, compileErr = loadstring(raw)
+    if not fn then
+        warn("[idk hub] loadstring compile error for " .. label .. ": " .. tostring(compileErr))
+        return nil
+    end
+    local okRun, result = pcall(fn)
+    if not okRun then
+        warn("[idk hub] Runtime error while loading " .. label .. ": " .. tostring(result))
+        return nil
+    end
+    return result
 end
 
-pcall(function()
-    ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
-end)
-pcall(function()
-    SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
-end)
+print("[idk hub] >>> checkpoint 1: fetching Obsidian Library...")
+Library = safeLoad(repo .. "Library.lua", "Library.lua")
+if not Library then
+    error("[idk hub] FATAL: Library failed to load. Read the warnings above.")
+end
+print("[idk hub] >>> checkpoint 2: Library loaded OK")
+
+ThemeManager = safeLoad(repo .. "addons/ThemeManager.lua", "ThemeManager.lua")
+SaveManager  = safeLoad(repo .. "addons/SaveManager.lua",  "SaveManager.lua")
 
 if not ThemeManager then warn("[idk hub] ThemeManager failed to load — themes tab will be missing.") end
 if not SaveManager  then warn("[idk hub] SaveManager failed to load — config will not persist.")    end
@@ -482,12 +536,14 @@ local Options = Library.Options
 local Toggles = Library.Toggles
 
 -- Main window
+print("[idk hub] >>>> ck 4: calling Library:CreateWindow...")
 local Window = Library:CreateWindow({
     Title  = "idk hub",
     Footer = "v6",
     Center = true,
     AutoShow = true,
 })
+print("[idk hub] >>>> ck 4b: window created OK =", Window)
 
 -- ═══════════════════════════════════════
 --  TABS (5 preserved from the original)
@@ -750,6 +806,7 @@ spotifyNextLabel    = spotifyNowBox:AddLabel("Next: (queue empty)", true)
 -- ═══════════════════════════════════════
 --  SPOTIFY MINI PLAYER POPUP (separate floating GUI)
 -- ═══════════════════════════════════════
+print("[idk hub] >>>> ck 5: creating Spotify popup ScreenGui...")
 SpotifyPopupGui = Instance.new("ScreenGui")
 SpotifyPopupGui.Name = "idk_hub_spotify_popup"
 SpotifyPopupGui.ResetOnSpawn = false
@@ -757,6 +814,7 @@ SpotifyPopupGui.IgnoreGuiInset = true
 SpotifyPopupGui.DisplayOrder = 999998  -- just below the icon's 999999
 SpotifyPopupGui.Enabled = false  -- hidden until the user toggles it on
 SpotifyPopupGui.Parent = PlayerGui
+print("[idk hub] >>>> ck 5b: popup ScreenGui created & parented OK")
 
 local PopupFrame = Instance.new("Frame")
 PopupFrame.Size = UDim2.new(0, 280, 0, 130)
@@ -869,7 +927,7 @@ makePopupButton(10,  "⏮", function()
     pcall(function() spotifyPlayerCommand("POST", "/me/player/previous") end)
 end)
 local playPauseBtn = makePopupButton(48, "⏯", function()
-    if isPlaying then
+    if spotifyIsPlaying then
         pcall(function() spotifyPlayerCommand("PUT", "/me/player/pause") end)
     else
         pcall(function() spotifyPlayerCommand("PUT", "/me/player/play") end)
@@ -1122,6 +1180,7 @@ local kicksLabel   = uptimeBox:AddLabel("Kicks prevented: 0")
 -- ═══════════════════════════════════════
 --  ICON — animated sprite-sheet (preserved from the working version)
 -- ═══════════════════════════════════════
+print("[idk hub] >>>> ck 6: building icon ScreenGui...")
 local ICON_DECAL_ID = "91252878133096"
 
 -- Sprite-sheet 1024x1024, 4x4 grid -> 16 frames of 256x256 px each
@@ -1146,6 +1205,7 @@ ScreenGui.DisplayOrder = 999999  -- always render above Obsidian's ScreenGui
 local oldGui = PlayerGui:FindFirstChild(ScreenGui.Name)
 if oldGui then oldGui:Destroy() end
 ScreenGui.Parent = PlayerGui
+print("[idk hub] >>>> ck 6b: icon ScreenGui created & parented OK")
 
 local StarBtn = Instance.new("ImageButton")
 StarBtn.Size = UDim2.new(0, 76, 0, 76)
@@ -1483,6 +1543,7 @@ end)
 Library.ToggleKeybind = Options.MenuKeybind
 
 -- ── Theme & Save managers auto-build Themes / Theme list / Configuration groupboxes on this tab ──
+print("[idk hub] >>>> ck 7: settings tab managers (ThemeManager =", ThemeManager, ", SaveManager =", SaveManager, ")")
 if ThemeManager and SaveManager then
     ThemeManager:SetLibrary(Library)
     SaveManager:SetLibrary(Library)
@@ -1495,8 +1556,11 @@ if ThemeManager and SaveManager then
     ThemeManager:SetFolder("idk_hub")
     SaveManager:SetFolder("idk_hub")
 
+    print("[idk hub] >>>> ck 7a: BuildConfigSection...")
     SaveManager:BuildConfigSection(SettingsTab)          -- adds "Configuration" groupbox
+    print("[idk hub] >>>> ck 7b: ApplyToTab (ThemeManager)...")
     ThemeManager:ApplyToTab(SettingsTab)                  -- adds "Themes" + "Theme list" groupboxes
+    print("[idk hub] >>>> ck 7c: managers done")
 
     -- Background Image input: auto-resolve an rbxassetid:// decal to its Texture ID
     -- (Roblox ImageLabel.Image needs the texture URL, not the decal asset ID).
@@ -1543,3 +1607,6 @@ elseif SaveManager and not ThemeManager then
     SaveManager:BuildConfigSection(SettingsTab)
     SaveManager:LoadAutoloadConfig()
 end
+
+print("[idk hub] >>>> ck 99: SCRIPT LOADED TO COMPLETION — top-level chunk finished without error")
+print("[idk hub] >>>> DIAG-END v=0xA1B2 — if you saw all checkpoints 1..99 then runtime is clean; any custom UI errors now belong to Obsidian task.spawn loops, not the script body")
