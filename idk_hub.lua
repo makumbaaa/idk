@@ -597,7 +597,7 @@ local Toggles = Library.Toggles
 print("[idk hub] >>>> ck 4: calling Library:CreateWindow...")
 local Window = Library:CreateWindow({
     Title  = "idk hub",
-    Footer = "v6",
+    Footer = "0.5",
     Center = true,
     AutoShow = true,
 })
@@ -617,7 +617,7 @@ local MiscTab      = Window:AddTab("misc",       "shield")
 do
     local AboutBox = AboutTab:AddLeftGroupbox("about")
     AboutBox:AddLabel("Script:   idk hub", true)
-    AboutBox:AddLabel("Version:  v6", true)
+    AboutBox:AddLabel("Version:  0.5", true)
     AboutBox:AddLabel("Creator:  makumbaaa", true)
     local updateLabel     = AboutBox:AddLabel("Last update: loading...", true)
     local relativeLabel   = AboutBox:AddLabel("Latest update: loading...", true)
