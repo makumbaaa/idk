@@ -86,7 +86,7 @@ local function fireRenew(machine)
         Event:InvokeServer(machine.tier, machine.slot, 10000)
     end)
     if ok then
-        machine.count += 1
+        machine.count = machine.count + 1
     else
         warn("[idk hub] -> " .. machine.tier .. ": " .. tostring(err))
     end
@@ -209,8 +209,42 @@ local function pureLuaSha256(input)
                 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
                 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
                 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2 }
-    local function rotr(x, n) return (x >> n) | (x << (32 - n)) end
-    local function add32(...) local r = 0 for _, v in ipairs({...}) do r = (r + v) % 2^32 end return r end
+
+    -- Pure-Lua 5.1 bitwise helpers (no Luau / 5.3 `&`, `~`, `<<`, `>>` operators).
+    -- We work on 32-bit unsigned ints stored in normal Lua numbers.
+    local MOD = 2^32
+    local function band(a, b)
+        local r, p = 0, 1
+        for _ = 0, 31 do
+            local a1, b1 = a % 2, b % 2
+            if a1 + b1 == 2 then r = r + p end
+            a = (a - a1) / 2; b = (b - b1) / 2; p = p * 2
+        end
+        return r
+    end
+    local function bor(a, b)
+        local r, p = 0, 1
+        for _ = 0, 31 do
+            local a1, b1 = a % 2, b % 2
+            if a1 == 1 or b1 == 1 then r = r + p end
+            a = (a - a1) / 2; b = (b - b1) / 2; p = p * 2
+        end
+        return r
+    end
+    local function bxor(a, b)
+        local r, p = 0, 1
+        for _ = 0, 31 do
+            local a1, b1 = a % 2, b % 2
+            if a1 ~= b1 then r = r + p end
+            a = (a - a1) / 2; b = (b - b1) / 2; p = p * 2
+        end
+        return r
+    end
+    local function bnot(a) return (MOD - 1 - a) % MOD end
+    local function rshift(a, n)  return math.floor(a / 2^n) % MOD end
+    local function lshift(a, n)  return (a * 2^n) % MOD end
+    local function rotr(x, n) return bor(rshift(x, n), lshift(x, 32 - n)) end
+    local function add32(...) local r = 0 for _, v in ipairs({...}) do r = (r + v) % MOD end return r end
 
     -- Pre-processing: append 0x80, pad to 56 mod 64, append 8-byte big-endian length
     local bytes = { input:byte(1, -1) }
@@ -230,18 +264,18 @@ local function pureLuaSha256(input)
                     bytes[chunkStart + t*4+3])
         end
         for t = 16, 63 do
-            local s0 = rotr(w[t-15], 7) ~ rotr(w[t-15], 18) ~ (w[t-15] >> 3)
-            local s1 = rotr(w[t-2], 17) ~ rotr(w[t-2], 19) ~ (w[t-2] >> 10)
+            local s0 = bxor(bxor(rotr(w[t-15], 7), rotr(w[t-15], 18)), rshift(w[t-15], 3))
+            local s1 = bxor(bxor(rotr(w[t-2], 17), rotr(w[t-2], 19)), rshift(w[t-2], 10))
             w[t] = (w[t-16] + s0 + w[t-7] + s1) % 2^32
         end
 
         local a, b, c, d, e, f, g, h0 = h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8]
         for t = 0, 63 do
-            local S1 = rotr(e, 6) ~ rotr(e, 11) ~ rotr(e, 25)
-            local ch = (e & f) ~ ((~e) & g)
+            local S1 = bxor(bxor(rotr(e, 6), rotr(e, 11)), rotr(e, 25))
+            local ch = bxor(band(e, f), band(bnot(e), g))
             local temp1 = add32(h0, k[t+1], S1, ch, w[t])
-            local S0 = rotr(a, 2) ~ rotr(a, 13) ~ rotr(a, 22)
-            local maj = (a & b) ~ (a & c) ~ (b & c)
+            local S0 = bxor(bxor(rotr(a, 2), rotr(a, 13)), rotr(a, 22))
+            local maj = bxor(bxor(band(a, b), band(a, c)), band(b, c))
             local temp2 = add32(S0, maj)
             h0 = g; g = f; f = e; e = add32(d, temp1)
             d = c; c = b; b = a; a = add32(temp1, temp2)
@@ -889,7 +923,7 @@ local function applyNowPlaying(playerState, queuePreview)
         if spotifyProgressLabel  then spotifyProgressLabel:SetText("Progress: --:-- / --:--") end
         popupTrackLabel.Text     = "(not playing)"
         popupArtistLabel.Text    = ""
-        popupProgressFill:Size   = UDim2.new(0, 0, 1, 0)
+        popupProgressFill.Size   = UDim2.new(0, 0, 1, 0)
         popupProgressLabel.Text  = "--:-- / --:--"
         return
     end
@@ -954,9 +988,9 @@ local function applyNowPlaying(playerState, queuePreview)
 
     -- Initial progress-bar fill (RenderStepped interpolates from here every frame)
     if durationMs > 0 then
-        popupProgressFill:Size = UDim2.new(progressMs / durationMs, 0, 1, 0)
+        popupProgressFill.Size = UDim2.new(progressMs / durationMs, 0, 1, 0)
     else
-        popupProgressFill:Size = UDim2.new(0, 0, 1, 0)
+        popupProgressFill.Size = UDim2.new(0, 0, 1, 0)
     end
     popupProgressLabel.Text = msToClock(progressMs) .. " / " .. msToClock(durationMs)
 end
@@ -968,8 +1002,8 @@ task.spawn(function()
     while true do
         task.wait(SPOTIFY_POLL_SEC)
         if Library.Unloaded then break end
-        if not httpRequestFn then continue end
-        if spotify.access_token == "" then continue end
+        if not httpRequestFn then goto continue end
+        if spotify.access_token == "" then goto continue end
 
         -- Refresh token if expired (or about to expire)
         if os.time() >= spotify.expires_at and spotify.refresh_token ~= "" then
@@ -982,7 +1016,7 @@ task.spawn(function()
                 spotify.access_token = ""
                 saveSpotifyTokens()
                 updateSpotifyStatusText()
-                continue
+                goto continue
             end
         end
 
@@ -996,7 +1030,7 @@ task.spawn(function()
                     if ok then saveSpotifyTokens() end
                 end
             end
-            continue
+            goto continue
         end
 
         -- Optionally also GET /me/player/queue for the upcoming-track preview.
@@ -1015,6 +1049,7 @@ task.spawn(function()
         end
 
         applyNowPlaying(playerState, queuePreview)
+        ::continue::
     end
 end)
 
@@ -1029,7 +1064,7 @@ RunService.RenderStepped:Connect(function()
     if currentMs > spotifyTotalMs then currentMs = spotifyTotalMs end
     if currentMs < 0 then currentMs = 0 end
 
-    popupProgressFill:Size = UDim2.new(currentMs / spotifyTotalMs, 0, 1, 0)
+    popupProgressFill.Size = UDim2.new(currentMs / spotifyTotalMs, 0, 1, 0)
     popupProgressLabel.Text = msToClock(currentMs) .. " / " .. msToClock(spotifyTotalMs)
 end)
 local machineRenewBox  = EventTab:AddLeftGroupbox("luck machine renewer")
@@ -1263,7 +1298,7 @@ end)
 Players.LocalPlayer.Idled:Connect(function()
     if antiKickEnabled then
         resetIdleTimer()
-        antiKickCount += 1
+        antiKickCount = antiKickCount + 1
     end
 end)
 
