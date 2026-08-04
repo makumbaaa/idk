@@ -145,25 +145,90 @@ do
     AboutBox:AddLabel("Script:   idk hub", true)
     AboutBox:AddLabel("Version:  v6", true)
     AboutBox:AddLabel("Creator:  makumbaaa", true)
-    local updateLabel = AboutBox:AddLabel("Last update: loading...", true)
+    local updateLabel     = AboutBox:AddLabel("Last update: loading...", true)
+    local relativeLabel   = AboutBox:AddLabel("Latest update: loading...", true)
 
-    -- Fetch the latest commit date on the main branch from the GitHub API.
-    -- shows "YYYY-MM-DD HH:MM UTC" once it arrives.
+    -- Convert a full ISO 8601 timestamp "YYYY-MM-DDTHH:MM:SSZ" to epoch seconds.
+    local function isoToEpoch(iso)
+        local y, mo, d, h, mi, s = iso:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d):(%d%d)")
+        if not (y and mo and d and h and mi and s) then return nil end
+        return os.time({
+            year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+            hour = tonumber(h), min = tonumber(mi), sec = tonumber(s),
+            isdst = false,
+        })
+    end
+
+    -- Build a "X unit ago" string using the rules the user asked for:
+    --   < 1 hour  -> "X minutes ago"
+    --   < 24 h    -> "X hours X minutes ago"
+    --   < 7 days  -> "X days X hours ago"
+    --   >= 7 days -> "X weeks X days ago"
+    local function relativeTime(delta)
+        delta = math.max(0, math.floor(delta))
+        local weeks  = math.floor(delta / 604800)
+        local days   = math.floor((delta % 604800) / 86400)
+        local hours  = math.floor((delta % 86400) / 3600)
+        local mins   = math.floor((delta % 3600) / 60)
+
+        if weeks >= 1 then
+            return weeks .. " week" .. (weeks == 1 and "" or "s") .. " "
+                .. days .. " day" .. (days == 1 and "" or "s") .. " ago"
+        elseif days >= 1 then
+            return days .. " day" .. (days == 1 and "" or "s") .. " "
+                .. hours .. " hour" .. (hours == 1 and "" or "s") .. " ago"
+        elseif hours >= 1 then
+            return hours .. " hour" .. (hours == 1 and "" or "s") .. " "
+                .. mins .. " minute" .. (mins == 1 and "" or "s") .. " ago"
+        else
+            return mins .. " minute" .. (mins == 1 and "" or "s") .. " ago"
+        end
+    end
+
+    -- Fetch the latest commit date on the main branch from the GitHub API
+    -- and refresh the relative-time label once a minute thereafter.
     task.spawn(function()
         local api = "https://api.github.com/repos/makumbaaa/idk/commits/main"
         local ok, body = pcall(function()
             return game:HttpGet(api)
         end)
+
+        local commitEpoch
+
         if not ok or type(body) ~= "string" or body == "" then
             updateLabel:SetText("Last update: unavailable")
+            relativeLabel:SetText("Latest update: unavailable")
             return
         end
-        -- Parse the commit date from the JSON. Avoids needing HttpService:JSONDecode.
-        local date = body:match('"date":%s*"(%d%d%d%d%-%d%d%-%d%d)')
-        if date then
-            updateLabel:SetText("Last update: " .. date)
-        else
+
+        -- The commit date appears twice in the JSON (committer + author). The
+        -- first match is committer.date, which we use as the canonical timestamp.
+        local iso = body:match('"date":%s*"(%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ)"')
+        if not iso then
             updateLabel:SetText("Last update: unknown")
+            relativeLabel:SetText("Latest update: unknown")
+            return
+        end
+
+        commitEpoch = isoToEpoch(iso)
+        if not commitEpoch then
+            updateLabel:SetText("Last update: " .. iso)
+            relativeLabel:SetText("Latest update: unavailable")
+            return
+        end
+
+        -- Format the absolute timestamp as "YYYY-MM-DD HH:MM"
+        local y, mo, d, h, mi = iso:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d)")
+        local pretty = string.format("%s-%s-%s %s:%s", y, mo, d, h, mi)
+        updateLabel:SetText("Last update: " .. pretty)
+
+        -- Update the relative label now, and re-run every 60s so it stays fresh
+        relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - commitEpoch))
+        while true do
+            task.wait(60)
+            pcall(function()
+                relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - commitEpoch))
+            end)
         end
     end)
 end
