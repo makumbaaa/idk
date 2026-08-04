@@ -28,6 +28,8 @@ print("[idk hub] >>>> ck 2: services OK")
 print("[idk hub] >>>> ck 3a: about to Wait for PlayerGui (LocalPlayer =", Players.LocalPlayer, ")")
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 print("[idk hub] >>>> ck 3b: PlayerGui OK =", PlayerGui:GetFullName())
+print("[idk hub Spotify Setup] httpRequestFn available =", httpRequestFn ~= nil)
+print("[idk hub Spotify Setup] SPOTIFY_POL_SEC =", SPOTIFY_POLL_SEC)
 
 -- Remotes are resolved lazily inside task.spawn so top-level execution never
 -- yields or hard-errors if the game hasn't replicated Network yet.
@@ -422,13 +424,62 @@ local function spotifyAuthHeaders()
     return { ["Authorization"] = "Bearer " .. spotify.access_token, ["Accept"] = "application/json" }
 end
 
--- GET /v1/me/player. Returns the parsed JSON table (or {} when 204 No Content).
+-- GET /v1/me/player. Returns the parsed JSON table (or {} when truly nothing is playing).
+-- Spotify returns 204 when there's no *active* device, even if your desktop/phone
+-- Spotify app is running. When we see 204 we trigger a transfer_playback to the
+-- first available non-restricted device (with play=false so we don't auto-play),
+-- then retry once. This is what makes Now Playing work after the desktop app
+-- has been idle / a tab was reloaded.
+local function spotifyActivateFirstDevice()
+    local body, status = httpSend("GET", SPOTIFY_API_BASE .. "/me/player/devices", spotifyAuthHeaders())
+    if not body or status ~= 200 or body == "" then return nil end
+    local okDecode, decoded = pcall(function()
+        return HttpService:JSONDecode(body)
+    end)
+    if not okDecode or type(decoded) ~= "table" or type(decoded.devices) ~= "table" then return nil end
+    -- Prefer an already-active device; fall back to the first non-restricted one.
+    local target
+    for _, d in ipairs(decoded.devices) do
+        if d.is_active == true then target = d break end
+    end
+    if not target then
+        for _, d in ipairs(decoded.devices) do
+            if d.is_restricted ~= true and d.id then target = d break end
+        end
+    end
+    if not target or not target.id then return nil end
+    -- PUT /me/player with {device_ids=[id], play=false} promotes this device to
+    -- active without forcing playback to start.
+    local payload = HttpService:JSONEncode({ device_ids = { target.id }, play = false })
+    httpSend("PUT", SPOTIFY_API_BASE .. "/me/player", {
+        ["Authorization"] = "Bearer " .. spotify.access_token,
+        ["Content-Type"]  = "application/json",
+        ["Accept"]         = "application/json",
+    }, payload)
+    return true
+end
+
 local function spotifyGetPlayer()
     local body, status = httpSend("GET", SPOTIFY_API_BASE .. "/me/player", spotifyAuthHeaders())
-    if not body then return nil, status end
-    if status == 204 or body == "" then return {} end  -- nothing currently playing
-    if status == 401 then return nil, "401"  end        -- caller will refresh and retry
-    if status ~= 200 then return nil, "HTTP " .. tostring(status) end
+    if not body and status then return nil, status end
+    if status == 401 then return nil, "401" end  -- caller refreshes & retries
+
+    -- 204 = no active device (or no track). Try to activate one, then retry.
+    if status == 204 or body == "" then
+        if spotifyActivateFirstDevice() then
+            task.wait(0.4)
+            body, status = httpSend("GET", SPOTIFY_API_BASE .. "/me/player", spotifyAuthHeaders())
+            if not body and status then return nil, status end
+            if status == 401 then return nil, "401" end
+            if status == 204 or body == "" then return {} end  -- genuinely nothing playing
+            if status ~= 200 then return nil, "HTTP " .. tostring(status) end
+        else
+            return {}  -- no available device + nothing playing
+        end
+    elseif status ~= 200 then
+        return nil, "HTTP " .. tostring(status)
+    end
+
     local okDecode, decoded = pcall(function()
         return HttpService:JSONDecode(body)
     end)
@@ -438,7 +489,9 @@ end
 
 -- Issue a Spotify Player PUT/POST command (play / pause / next / previous).
 local function spotifyPlayerCommand(method, path)
-    return httpSend(method, SPOTIFY_API_BASE .. path, spotifyAuthHeaders())
+    local headers = spotifyAuthHeaders()
+    headers["Content-Type"] = "application/json"
+    return httpSend(method, SPOTIFY_API_BASE .. path, headers)
 end
 
 -- Match a JSON string value for a given key. Naive but sufficient for the few
@@ -785,11 +838,18 @@ spotifySetupBox:AddButton("Disconnect", function()
     spotify.expires_at    = 0
     saveSpotifyTokens()
     updateSpotifyStatusText()
-    if spotifyArtImage    then spotifyArtImage:SetImage("rbxasset://textures/transparent.png") end
+    if spotifyArtImage    then pcall(function() spotifyArtImage:SetImage("rbxassetid://99857611104680") end) end
     if spotifyTrackLabel  then spotifyTrackLabel:SetText("(not playing)") end
     if spotifyArtistLabel then spotifyArtistLabel:SetText("") end
     if spotifyProgressLabel then spotifyProgressLabel:SetText("--:-- / --:--") end
     if spotifyNextLabel   then spotifyNextLabel:SetText("Next: (queue empty)") end
+    -- Also clear popup labels so everything is in sync
+    if popupTrackLabel    then popupTrackLabel.Text = "(not playing)" end
+    if popupArtistLabel   then popupArtistLabel.Text = "" end
+    if popupArt           then pcall(function() popupArt.Image = "rbxassetid://99857611104680" end) end
+    if popupProgressFill  then popupProgressFill.Size = UDim2.new(0, 0, 1, 0) end
+    if popupProgressLabel then popupProgressLabel.Text = "--:-- / --:--" end
+    if popupNextLabel      then popupNextLabel.Text = "Next: (queue empty)" end
     Library:Notify("Spotify disconnected", 4)
 end, true)  -- Risky styling so it's clearly a destructive action
 
@@ -820,13 +880,13 @@ SpotifyPopupGui.Name = "idk_hub_spotify_popup"
 SpotifyPopupGui.ResetOnSpawn = false
 SpotifyPopupGui.IgnoreGuiInset = true
 SpotifyPopupGui.DisplayOrder = 999998  -- just below the icon's 999999
-SpotifyPopupGui.Enabled = false  -- hidden until the user toggles it on
+SpotifyPopupGui.Enabled = true  -- visible by default so user sees it immediately
 SpotifyPopupGui.Parent = PlayerGui
 print("[idk hub] >>>> ck 5b: popup ScreenGui created & parented OK")
 
 local PopupFrame = Instance.new("Frame")
-PopupFrame.Size = UDim2.new(0, 280, 0, 130)
-PopupFrame.Position = UDim2.new(1, -300, 1, -150)  -- bottom-right
+PopupFrame.Size = UDim2.new(0, 280, 0, 150)
+PopupFrame.Position = UDim2.new(1, -290, 1, -1190)  -- bottom-right
 PopupFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 PopupFrame.BorderSizePixel = 0
 PopupFrame.ClipsDescendants = true
@@ -911,11 +971,36 @@ popupProgressLabel.TextXAlignment = Enum.TextXAlignment.Left
 popupProgressLabel.ZIndex = 6
 popupProgressLabel.Parent = PopupFrame
 
+-- Next track preview label (popup)
+local popupNextLabel = Instance.new("TextLabel")
+popupNextLabel.Size = UDim2.new(1, -20, 0, 22)
+popupNextLabel.Position = UDim2.new(0, 10, 0, 94)
+popupNextLabel.BackgroundTransparency = 1
+popupNextLabel.Text = "Next: (queue empty)"
+popupNextLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+popupNextLabel.TextSize = 11
+popupNextLabel.Font = Enum.Font.Gotham
+popupNextLabel.TextXAlignment = Enum.TextXAlignment.Left
+popupNextLabel.TextWrapped = true
+popupNextLabel.TextTruncate = Enum.TextTruncate.AtEnd
+popupNextLabel.ZIndex = 6
+popupNextLabel.Parent = PopupFrame
+
+-- Interpolation state. Declared HERE (above the play/pause button below) so the
+-- button's click closure can capture `spotifyIsPlaying` as a true upvalue. It was
+-- previously declared ~30 lines further down, which made the closure bind to an
+-- out-of-scope variable and the play/pause button always took the "play" branch
+-- — so you could never pause/stop a track.
+local spotifySyncedAt   = 0     -- tick() of the most recent successful poll
+local spotifySyncedMs    = 0     -- progress_ms at the most recent poll
+local spotifyTotalMs     = 0     -- current track duration in ms
+local spotifyIsPlaying   = false -- whether Spotify reports playback as playing
+
 -- Bottom row: prev / play-pause / next buttons + close X
 local function makePopupButton(xOff, glyph, onClick)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(0, 32, 0, 28)
-    b.Position = UDim2.new(0, xOff, 0, 100)
+    b.Position = UDim2.new(0, xOff, 0, 118)
     b.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     b.BorderSizePixel = 0
     b.Text = glyph
@@ -931,42 +1016,16 @@ local function makePopupButton(xOff, glyph, onClick)
     return b
 end
 
-makePopupButton(10,  "⏮", function()
+makePopupButton(4,  "⏮", function()
     pcall(function() spotifyPlayerCommand("POST", "/me/player/previous") end)
 end)
-local playPauseBtn = makePopupButton(48, "⏯", function()
-    if spotifyIsPlaying then
-        pcall(function() spotifyPlayerCommand("PUT", "/me/player/pause") end)
-    else
-        pcall(function() spotifyPlayerCommand("PUT", "/me/player/play") end)
-    end
-end)
-makePopupButton(86, "⏭", function()
+makePopupButton(42, "⏭", function()
+    print("[idk hub Spotify] NEXT clicked")
     pcall(function() spotifyPlayerCommand("POST", "/me/player/next") end)
 end)
 
--- Close X (hides the popup but leaves the script running)
-local popupCloseBtn = Instance.new("TextButton")
-popupCloseBtn.Size = UDim2.new(0, 22, 0, 22)
-popupCloseBtn.Position = UDim2.new(1, -28, 0, 6)
-popupCloseBtn.BackgroundColor3 = Color3.fromRGB(155, 40, 40)
-popupCloseBtn.BorderSizePixel = 0
-popupCloseBtn.Text = "×"
-popupCloseBtn.TextColor3 = Color3.fromRGB(220, 220, 220)
-popupCloseBtn.TextSize = 14
-popupCloseBtn.Font = Enum.Font.GothamBold
-popupCloseBtn.ZIndex = 8
-popupCloseBtn.Parent = PopupFrame
-Instance.new("UICorner", popupCloseBtn).CornerRadius = UDim.new(1, 0)
-popupCloseBtn.MouseButton1Click:Connect(function()
-    SpotifyPopupGui.Enabled = false
-end)
-
--- Interpolation state (updated by the poll loop and consumed by RenderStepped).
-local spotifySyncedAt   = 0     -- tick() of the most recent successful poll
-local spotifySyncedMs    = 0     -- progress_ms at the most recent poll
-local spotifyTotalMs     = 0     -- current track duration in ms
-local spotifyIsPlaying   = false -- whether Spotify reports playback as playing
+-- Interpolation state declared above (near the play/pause button) so its closure
+-- binds to the real upvalue. spotifySyncedAt/Ms and friends live there too.
 
 -- Format a millisecond count as M:SS or MM:SS
 local function msToClock(ms)
@@ -985,14 +1044,16 @@ local function applyNowPlaying(playerState, queuePreview)
     if not playerState.item then
         spotifyIsPlaying = false
         spotifyTotalMs   = 0
-        if spotifyArtImage       then spotifyArtImage:SetImage("rbxasset://textures/transparent.png") end
+        if spotifyArtImage       then pcall(function() spotifyArtImage:SetImage("rbxassetid://99857611104680") end) end
         if spotifyTrackLabel     then spotifyTrackLabel:SetText("Track: (nothing playing)") end
         if spotifyArtistLabel    then spotifyArtistLabel:SetText("Artist: ") end
         if spotifyProgressLabel  then spotifyProgressLabel:SetText("Progress: --:-- / --:--") end
         popupTrackLabel.Text     = "(not playing)"
         popupArtistLabel.Text    = ""
+        if popupArt then pcall(function() popupArt.Image = "rbxassetid://99857611104680" end) end
         popupProgressFill.Size   = UDim2.new(0, 0, 1, 0)
         popupProgressLabel.Text  = "--:-- / --:--"
+        if popupNextLabel then popupNextLabel.Text = "Next: (queue empty)" end
         return
     end
 
@@ -1006,11 +1067,8 @@ local function applyNowPlaying(playerState, queuePreview)
     end
     local artistStr = table.concat(artists, ", ")
 
-    -- Album art: pick the smallest image (less bandwidth for Roblox fetch)
-    local artUrl = ""
-    if item.album and item.album.images and #item.album.images > 0 then
-        artUrl = item.album.images[#item.album.images].url or ""
-    end
+    -- User-provided Spotify logo asset
+    local artUrl = "rbxassetid://99857611104680"
 
     -- Progress + duration
     local progressMs = tonumber(playerState.progress_ms) or 0
@@ -1020,8 +1078,8 @@ local function applyNowPlaying(playerState, queuePreview)
     spotifyTotalMs   = durationMs
     spotifyIsPlaying = playerState.is_playing == true
 
-    -- Update Obsidian tab labels
-    if spotifyArtImage    and artUrl ~= "" then spotifyArtImage:SetImage(artUrl) end
+    -- Update Obsidian tab labels (wrap image in pcall so invalid art URL doesn't kill the rest)
+    if spotifyArtImage then pcall(function() spotifyArtImage:SetImage(artUrl) end) end
     if spotifyTrackLabel  then spotifyTrackLabel:SetText("Track: " .. trackName) end
     if spotifyArtistLabel then spotifyArtistLabel:SetText("Artist: " .. artistStr) end
     if spotifyProgressLabel then
@@ -1031,10 +1089,15 @@ local function applyNowPlaying(playerState, queuePreview)
     -- Update popup labels
     popupTrackLabel.Text  = trackName
     popupArtistLabel.Text = artistStr
-    if artUrl ~= "" then popupArt.Image = artUrl end
-    playPauseBtn.Text = spotifyIsPlaying and "⏸" or "▶"
+    -- Always set popup art (wrap in pcall so invalid URL doesn't crash)
+    if popupArt then pcall(function() popupArt.Image = artUrl end) end
 
     -- Next track preview (from /me/player/queue if available)
+    print("[idk hub Spotify] queuePreview=" .. tostring(queuePreview) .. " queue=" .. tostring(queuePreview and queuePreview.queue and #queuePreview.queue or "nil"))
+    if queuePreview and queuePreview.queue and #queuePreview.queue > 0 then
+        local first = queuePreview.queue[1]
+        print("[idk hub Spotify] firstQueueItem=" .. tostring(first) .. " name=" .. tostring(first and first.name) .. " artists=" .. tostring(first and first.artists))
+    end
     local nextName = "(queue empty)"
     if queuePreview and queuePreview.queue and queuePreview.queue[1] then
         local nextItem = queuePreview.queue[1]
@@ -1053,6 +1116,7 @@ local function applyNowPlaying(playerState, queuePreview)
         end
     end
     if spotifyNextLabel then spotifyNextLabel:SetText("Next: " .. nextName) end
+    if popupNextLabel then popupNextLabel.Text = "Next: " .. nextName end
 
     -- Initial progress-bar fill (RenderStepped interpolates from here every frame)
     if durationMs > 0 then
@@ -1090,15 +1154,31 @@ task.spawn(function()
 
         -- GET /me/player (status table)
         local playerState, err = spotifyGetPlayer()
+        print("[idk hub Spotify] playerState=" .. tostring(playerState) .. " err=" .. tostring(err) .. " type=" .. type(playerState))
+        if type(playerState) == "table" then
+            print("[idk hub Spotify] item=" .. tostring(playerState.item) .. " is_playing=" .. tostring(playerState.is_playing) .. " progress_ms=" .. tostring(playerState.progress_ms))
+        end
         if not playerState then
             if err == "401" then
-                -- Force a refresh + retry once on the next tick (loop iteration)
+                -- Refresh the token, then immediately retry the player fetch so the
+                -- UI populates THIS iteration instead of waiting 5s for the next
+                -- poll (which is what left the popup looking stuck after expiry).
                 if spotify.refresh_token ~= "" then
                     local ok = refreshSpotifyToken()
-                    if ok then saveSpotifyTokens() end
+                    if ok then
+                        saveSpotifyTokens()
+                        updateSpotifyStatusText()
+                        playerState, err = spotifyGetPlayer()
+                    else
+                        warn("[idk hub] Spotify refresh failed; user may need to re-authenticate")
+                        spotify.access_token = ""
+                        saveSpotifyTokens()
+                        updateSpotifyStatusText()
+                        continue
+                    end
                 end
             end
-            continue
+            if not playerState then continue end
         end
 
         -- Optionally also GET /me/player/queue for the upcoming-track preview.
@@ -1106,6 +1186,7 @@ task.spawn(function()
         local queuePreview
         do
             local qBody, qStatus = httpSend("GET", SPOTIFY_API_BASE .. "/me/player/queue", spotifyAuthHeaders())
+            print("[idk hub Spotify] queue status=" .. tostring(qStatus) .. " body=" .. tostring(qBody and #qBody or "nil"))
             if qBody and qStatus == 200 and qBody ~= "" then
                 local okQ, decoded = pcall(function()
                     return HttpService:JSONDecode(qBody)
@@ -1116,7 +1197,13 @@ task.spawn(function()
             end
         end
 
-        applyNowPlaying(playerState, queuePreview)
+        -- pcall: a malformed/missing field in playerState or queuePreview used to
+        -- throw inside applyNowPlaying and silently kill the whole poll loop,
+        -- leaving the popup stuck on "(not playing)" forever.
+        local okApply, applyErr = pcall(applyNowPlaying, playerState, queuePreview)
+        if not okApply then
+            warn("[idk hub] applyNowPlaying error: " .. tostring(applyErr))
+        end
     end
 end)
 
