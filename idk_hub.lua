@@ -19,17 +19,30 @@ local ContentProvider   = game:GetService("ContentProvider")
 -- nil value" at top-level execution.
 local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- RemoteEvent that resets the AFK idle timer
--- WaitForChild ensures Network and its children are replicated before we grab them.
-local Network       = ReplicatedStorage:WaitForChild("Network", 15)
-assert(Network, "[idk hub] ReplicatedStorage.Network did not replicate in time")
+-- Remotes are resolved lazily inside task.spawn so top-level execution never
+-- yields or hard-errors if the game hasn't replicated Network yet.
+local antiAfkRemote = nil
+local Event         = nil
 
-local antiAfkRemote = Network:WaitForChild("Idle Tracking: Stop Timer", 10)
-assert(antiAfkRemote, "[idk hub] 'Idle Tracking: Stop Timer' remote not found")
+task.spawn(function()
+    local ok, Network = pcall(function()
+        return ReplicatedStorage:WaitForChild("Network", 20)
+    end)
+    if not ok or not Network then
+        warn("[idk hub] ReplicatedStorage.Network not found — anti-kick & luck machine disabled")
+        return
+    end
 
--- RemoteFunction/Invoke for the luck machines
-local Event = Network:WaitForChild("GardenChanceMachine_AddTime", 10)
-assert(Event, "[idk hub] 'GardenChanceMachine_AddTime' remote not found")
+    local okAfk, afk = pcall(function()
+        return Network:WaitForChild("Idle Tracking: Stop Timer", 10)
+    end)
+    if okAfk and afk then antiAfkRemote = afk end
+
+    local okEv, ev = pcall(function()
+        return Network:WaitForChild("GardenChanceMachine_AddTime", 10)
+    end)
+    if okEv and ev then Event = ev end
+end)
 
 local RENEW_INTERVAL = 55  -- seconds between successive renewals of the same machine
 
@@ -80,7 +93,7 @@ local function formatTime(seconds)
 end
 
 local function resetIdleTimer()
-    if antiKickEnabled then
+    if antiKickEnabled and antiAfkRemote then
         pcall(function()
             antiAfkRemote:FireServer()
         end)
@@ -88,6 +101,10 @@ local function resetIdleTimer()
 end
 
 local function fireRenew(machine)
+    if not Event then
+        warn("[idk hub] -> " .. machine.tier .. ": Event remote not ready yet")
+        return
+    end
     local ok, err = pcall(function()
         Event:InvokeServer(machine.tier, machine.slot, 10000)
     end)
