@@ -133,7 +133,7 @@ local Window = Library:CreateWindow({
 -- ═══════════════════════════════════════
 --  TABS (5 preserved from the original)
 -- ═══════════════════════════════════════
-local MainTab      = Window:AddTab("about",       "info")
+local AboutTab     = Window:AddTab("about",       "info")
 local AutoFarmTab  = Window:AddTab("auto farm",  "tractor")
 local AutoHatchTab = Window:AddTab("auto hatch", "egg")
 local EventTab     = Window:AddTab("event",      "calendar")
@@ -141,7 +141,7 @@ local MiscTab      = Window:AddTab("misc",       "shield")
 
 -- Placeholder content for empty tabs
 do
-    local AboutBox = MainTab:AddLeftGroupbox("about")
+    local AboutBox = AboutTab:AddLeftGroupbox("about")
     AboutBox:AddLabel("Script:   idk hub", true)
     AboutBox:AddLabel("Version:  v6", true)
     AboutBox:AddLabel("Creator:  makumbaaa", true)
