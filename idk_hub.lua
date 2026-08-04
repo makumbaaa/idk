@@ -732,7 +732,25 @@ do
             Library:Notify("Enter webhook URL", 4)
             return
         end
-        Library:Notify("Webhook saved (test later)", 4)
+        if not httpRequestFn then
+            Library:Notify("No HTTP API — can't send webhook", 4)
+            return
+        end
+        local ok, resp = pcall(function()
+            return httpRequestFn({
+                Url = url,
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = '{"content":"test webhook from idk hub"}',
+            })
+        end)
+        if ok and resp and resp.StatusCode and resp.StatusCode >= 200 and resp.StatusCode < 300 then
+            Library:Notify("Webhook sent! Status: " .. tostring(resp.StatusCode), 4)
+        elseif ok and resp then
+            Library:Notify("Webhook sent. Status: " .. tostring(resp.StatusCode or "?") .. " | " .. tostring(resp.Body or ""):sub(1, 200), 4)
+        else
+            Library:Notify("Webhook failed: " .. tostring(resp), 4)
+        end
     end)
 end
 do
