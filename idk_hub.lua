@@ -806,17 +806,17 @@ do
     })
     cfg:AddLabel("Slot 1 (event items):", true)
     local slot1 = cfg:AddDropdown("Slot1Drop", {
-        Values   = {"Sunflower Gift", "None"},
+        Values   = {"Sunflower Gift", "Pumpkin Gift", "Easter Egg", "Holiday Gift", "None"},
         Default  = "Sunflower Gift",
     })
     cfg:AddLabel("Slot 2 (items):", true)
     local slot2 = cfg:AddDropdown("Slot2Drop", {
-        Values   = {"None", "Sunflower Gift"},
+        Values   = {"None", "Sunflower Gift", "Common Gift", "Rare Gift", "Epic Gift", "Lootbox Key"},
         Default  = "None",
     })
     cfg:AddLabel("Slot 3 (items by rarity):", true)
     local slot3 = cfg:AddDropdown("Slot3Drop", {
-        Values   = {"None", "Sunflower Gift"},
+        Values   = {"None", "Sunflower Gift", "Rare Gift", "Epic Gift", "Legendary Gift", "Mythic Gift"},
         Default  = "None",
     })
 
