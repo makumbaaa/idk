@@ -54,6 +54,22 @@ task.spawn(function()
         return Network:WaitForChild("GardenChanceMachine_AddTime", 10)
     end)
     if okEv and ev then Event = ev end
+
+    -- Track item updates for stats/webhook (Sunflower Gift etc.)
+    local okItems, itemsRemote = pcall(function()
+        return Network:WaitForChild("Items: Update", 10)
+    end)
+    if okItems and itemsRemote and itemsRemote:IsA("RemoteEvent") then
+        itemsRemote.OnClientEvent:Connect(function(player, data)
+            if type(data) == "table" and data.set and data.set.Lootbox then
+                for id, info in pairs(data.set.Lootbox) do
+                    if type(info) == "table" and info.id and info._am then
+                        trackedItems[info.id] = tonumber(info._am) or 0
+                    end
+                end
+            end
+        end)
+    end
 end)
 
 local RENEW_INTERVAL = 55  -- seconds between successive renewals of the same machine
@@ -92,6 +108,13 @@ local MACHINES = {
     { tier = "Titanic",    slot = "Slot1", label = "Titanic Luck",     enabled = false, count = 0 },
     { tier = "Gargantuan", slot = "Slot1", label = "Gargantuan Luck",  enabled = false, count = 0 },
 }
+
+-- Tracked items from Items: Update event
+local trackedItems = {}
+-- 3 selected webhook item slots
+local webhookSlots = {"", "", ""}
+-- Configurable webhook interval (minutes)
+local webhookIntervalMin = 5
 
 local lastRenew = {}
 
@@ -611,6 +634,7 @@ local AutoFarmTab  = Window:AddTab("auto farm",  "tractor")
 local AutoHatchTab = Window:AddTab("auto hatch", "egg")
 local EventTab     = Window:AddTab("event",      "calendar")
 local NotificationsTab = Window:AddTab("notifications", "bell")
+local StatsTab        = Window:AddTab("stats",         "chart-line")
 local SpotifyTab   = Window:AddTab("spotify",     "music")
 local MiscTab      = Window:AddTab("misc",       "shield")
 
@@ -717,12 +741,58 @@ do
 end
 
 -- ═══════════════════════════════════════
+--  STATS TAB — Item Tracking + Webhook Slots
+-- ═══════════════════════════════════════
+do
+    local statsBox = StatsTab:AddLeftGroupbox("tracked items")
+    statsBox:AddLabel("Sunflower Gift: 0", true)
+    local sunflowerLabel = statsBox:AddLabel("Sunflower Gift: loading...", true)
+    -- Update tracked amounts periodically
+    task.spawn(function()
+        while true do
+            task.wait(2)
+            if Library.Unloaded then break end
+            local gift = trackedItems["Sunflower Gift"] or 0
+            sunflowerLabel:SetText("Sunflower Gift: " .. tostring(gift))
+            -- Refresh any other tracked labels if added
+        end
+    end)
+end
+do
+    local webhookConfig = StatsTab:AddRightGroupbox("webhook config")
+    webhookConfig:AddLabel("Interval (minutes):", true)
+    local intervalInput = webhookConfig:AddInput("WebhookInterval", {
+        Placeholder = "5",
+        Default     = "5",
+    })
+    webhookConfig:AddLabel("Slot 1 (event item):", true)
+    local slot1 = webhookConfig:AddInput("Slot1", { Placeholder = "Sunflower Gift", Default = "" })
+    webhookConfig:AddLabel("Slot 2 (normal item):", true)
+    local slot2 = webhookConfig:AddInput("Slot2", { Placeholder = "", Default = "" })
+    webhookConfig:AddLabel("Slot 3 (normal item):", true)
+    local slot3 = webhookConfig:AddInput("Slot3", { Placeholder = "", Default = "" })
+
+    -- Save selected slots
+    local function saveSlots()
+        webhookSlots[1] = slot1.Value or ""
+        webhookSlots[2] = slot2.Value or ""
+        webhookSlots[3] = slot3.Value or ""
+        webhookIntervalMin = tonumber(intervalInput.Value) or 5
+    end
+    slot1:OnChanged(saveSlots)
+    slot2:OnChanged(saveSlots)
+    slot3:OnChanged(saveSlots)
+    intervalInput:OnChanged(saveSlots)
+    saveSlots()
+end
+
+-- ═══════════════════════════════════════
 --  NOTIFICATIONS TAB — Webhook + Script Updates
 -- ═══════════════════════════════════════
 do
     local lb = NotificationsTab:AddLeftGroupbox("webhook")
     lb:AddLabel("Webhook URL (for notifications):", true)
-    local webhookUrl = lb:AddInput("WebhookURL", {
+    webhookUrl = lb:AddInput("WebhookURL", {
         Placeholder = "https://discord.com/api/webhooks/...",
         Default     = "",
     })
@@ -1745,6 +1815,53 @@ elseif SaveManager and not ThemeManager then
     SaveManager:BuildConfigSection(SettingsTab)
     SaveManager:LoadAutoloadConfig()
 end
+
+-- ═══════════════════════════════════════
+--  WEBHOOK UPDATE LOOP (stats + selected items)
+-- ═══════════════════════════════════════
+task.spawn(function()
+    local lastSend = 0
+    while true do
+        task.wait(10)
+        if Library.Unloaded then break end
+        local url = webhookUrl and webhookUrl.Value or ""
+        if url == "" or not url:find("http") then
+            -- No webhook configured; skip sending
+        else
+            local intervalSec = (tonumber(webhookIntervalMin) or 5) * 60
+            local now = tick()
+            if now - lastSend >= intervalSec then
+                lastSend = now
+
+                -- Build payload with Sunflower Gift + 3 selected slots
+                local payloadItems = {}
+                local gift = trackedItems["Sunflower Gift"] or 0
+                payloadItems["Sunflower Gift"] = gift
+                for i = 1, 3 do
+                    local name = webhookSlots[i]
+                    if name and name ~= "" then
+                        payloadItems[name] = trackedItems[name] or 0
+                    end
+                end
+                local payloadStr = HttpService:JSONEncode({
+                    content = "idk hub update",
+                    items = payloadItems,
+                    timestamp = os.time(),
+                })
+                if httpRequestFn then
+                    pcall(function()
+                        httpRequestFn({
+                            Url = url,
+                            Method = "POST",
+                            Headers = { ["Content-Type"] = "application/json" },
+                            Body = payloadStr,
+                        })
+                    end)
+                end
+            end
+        end
+    end
+end)
 
 print("[idk hub] >>>> ck 99: SCRIPT LOADED TO COMPLETION — top-level chunk finished without error")
 print("[idk hub] >>>> DIAG-END v=0xA1B2 — if you saw all checkpoints 1..99 then runtime is clean; any custom UI errors now belong to Obsidian task.spawn loops, not the script body")
