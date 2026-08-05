@@ -804,17 +804,17 @@ do
         Placeholder = "5",
         Default     = "5",
     })
-    cfg:AddLabel("Slot 1 (pick item):", true)
+    cfg:AddLabel("Slot 1 (event items):", true)
     local slot1 = cfg:AddDropdown("Slot1Drop", {
         Values   = {"Sunflower Gift", "None"},
         Default  = "Sunflower Gift",
     })
-    cfg:AddLabel("Slot 2:", true)
+    cfg:AddLabel("Slot 2 (items):", true)
     local slot2 = cfg:AddDropdown("Slot2Drop", {
         Values   = {"None", "Sunflower Gift"},
         Default  = "None",
     })
-    cfg:AddLabel("Slot 3:", true)
+    cfg:AddLabel("Slot 3 (items by rarity):", true)
     local slot3 = cfg:AddDropdown("Slot3Drop", {
         Values   = {"None", "Sunflower Gift"},
         Default  = "None",
@@ -1830,6 +1830,7 @@ end
 -- ═══════════════════════════════════════
 task.spawn(function()
     local lastSend = 0
+    local lastGiftAmount = 0
     while true do
         task.wait(10)
         if Library.Unloaded then break end
@@ -1845,7 +1846,10 @@ task.spawn(function()
                 -- Build payload with Sunflower Gift + 3 selected slots
                 local payloadItems = {}
                 local gift = trackedItems["Sunflower Gift"] or 0
+                local giftDelta = gift - lastGiftAmount
                 payloadItems["Sunflower Gift"] = gift
+                payloadItems["Sunflower Gift (since last)"] = giftDelta
+                lastGiftAmount = gift
                 for i = 1, 3 do
                     local name = webhookSlots[i]
                     if name and name ~= "" then
