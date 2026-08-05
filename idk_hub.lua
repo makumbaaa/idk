@@ -1855,9 +1855,16 @@ task.spawn(function()
                 local payloadItems = {}
                 local gift = trackedItems["Sunflower Gift"] or 0
                 local giftDelta = gift - lastGiftAmount
-                payloadItems["Sunflower Gift"] = gift
-                payloadItems["Sunflower Gift (since last)"] = giftDelta
                 lastGiftAmount = gift
+                -- Only add Sunflower Gift explicitly if not selected in slots (prevents duplicate keys)
+                local hasSunflowerInSlots = false
+                for i = 1, 3 do
+                    if webhookSlots[i] == "Sunflower Gift" then hasSunflowerInSlots = true break end
+                end
+                if not hasSunflowerInSlots then
+                    payloadItems["Sunflower Gift"] = gift
+                    payloadItems["Sunflower Gift (since last)"] = giftDelta
+                end
                 for i = 1, 3 do
                     local name = webhookSlots[i]
                     if name and name ~= "" then
