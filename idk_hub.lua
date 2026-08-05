@@ -758,33 +758,7 @@ do
         end
     end)
 end
-do
-    local webhookConfig = StatsTab:AddRightGroupbox("webhook config")
-    webhookConfig:AddLabel("Interval (minutes):", true)
-    local intervalInput = webhookConfig:AddInput("WebhookInterval", {
-        Placeholder = "5",
-        Default     = "5",
-    })
-    webhookConfig:AddLabel("Slot 1 (event item):", true)
-    local slot1 = webhookConfig:AddInput("Slot1", { Placeholder = "Sunflower Gift", Default = "" })
-    webhookConfig:AddLabel("Slot 2 (normal item):", true)
-    local slot2 = webhookConfig:AddInput("Slot2", { Placeholder = "", Default = "" })
-    webhookConfig:AddLabel("Slot 3 (normal item):", true)
-    local slot3 = webhookConfig:AddInput("Slot3", { Placeholder = "", Default = "" })
 
-    -- Save selected slots
-    local function saveSlots()
-        webhookSlots[1] = slot1.Value or ""
-        webhookSlots[2] = slot2.Value or ""
-        webhookSlots[3] = slot3.Value or ""
-        webhookIntervalMin = tonumber(intervalInput.Value) or 5
-    end
-    slot1:OnChanged(saveSlots)
-    slot2:OnChanged(saveSlots)
-    slot3:OnChanged(saveSlots)
-    intervalInput:OnChanged(saveSlots)
-    saveSlots()
-end
 
 -- ═══════════════════════════════════════
 --  NOTIFICATIONS TAB — Webhook + Script Updates
@@ -822,6 +796,41 @@ do
             Library:Notify("Webhook failed: " .. tostring(resp), 4)
         end
     end)
+end
+do
+    local cfg = NotificationsTab:AddRightGroupbox("webhook settings")
+    cfg:AddLabel("Interval (minutes):", true)
+    local intervalInput = cfg:AddInput("WebhookInterval", {
+        Placeholder = "5",
+        Default     = "5",
+    })
+    cfg:AddLabel("Slot 1 (pick item):", true)
+    local slot1 = cfg:AddDropdown("Slot1Drop", {
+        Values   = {"Sunflower Gift", "None"},
+        Default  = "Sunflower Gift",
+    })
+    cfg:AddLabel("Slot 2:", true)
+    local slot2 = cfg:AddDropdown("Slot2Drop", {
+        Values   = {"None", "Sunflower Gift"},
+        Default  = "None",
+    })
+    cfg:AddLabel("Slot 3:", true)
+    local slot3 = cfg:AddDropdown("Slot3Drop", {
+        Values   = {"None", "Sunflower Gift"},
+        Default  = "None",
+    })
+
+    local function saveSlots()
+        webhookSlots[1] = (slot1.Value == "None") and "" or slot1.Value or ""
+        webhookSlots[2] = (slot2.Value == "None") and "" or slot2.Value or ""
+        webhookSlots[3] = (slot3.Value == "None") and "" or slot3.Value or ""
+        webhookIntervalMin = tonumber(intervalInput.Value) or 5
+    end
+    slot1:OnChanged(saveSlots)
+    slot2:OnChanged(saveSlots)
+    slot3:OnChanged(saveSlots)
+    intervalInput:OnChanged(saveSlots)
+    saveSlots()
 end
 do
     local lb = NotificationsTab:AddRightGroupbox("script updates")
