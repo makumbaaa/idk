@@ -36,6 +36,13 @@ print("[idk hub Spotify Setup] SPOTIFY_POL_SEC =", SPOTIFY_POLL_SEC)
 local antiAfkRemote = nil
 local Event         = nil
 
+-- Tracked items from Items: Update event
+local trackedItems = {}
+-- 3 selected webhook item slots
+local webhookSlots = {"", "", ""}
+-- Configurable webhook interval (minutes)
+local webhookIntervalMin = 5
+
 task.spawn(function()
     local ok, Network = pcall(function()
         return ReplicatedStorage:WaitForChild("Network", 20)
@@ -115,13 +122,6 @@ local MACHINES = {
     { tier = "Titanic",    slot = "Slot1", label = "Titanic Luck",     enabled = false, count = 0 },
     { tier = "Gargantuan", slot = "Slot1", label = "Gargantuan Luck",  enabled = false, count = 0 },
 }
-
--- Tracked items from Items: Update event
-local trackedItems = {}
--- 3 selected webhook item slots
-local webhookSlots = {"", "", ""}
--- Configurable webhook interval (minutes)
-local webhookIntervalMin = 5
 
 local lastRenew = {}
 
