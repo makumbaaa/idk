@@ -1857,7 +1857,7 @@ task.spawn(function()
                     end
                 end
                 local payloadStr = HttpService:JSONEncode({
-                    content = "idk hub update",
+                    content = ("idk hub — Sunflower Gift: " .. tostring(gift) .. " (+" .. tostring(giftDelta) .. ")"),
                     items = payloadItems,
                     timestamp = os.time(),
                 })
