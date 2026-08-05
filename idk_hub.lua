@@ -61,10 +61,17 @@ task.spawn(function()
     end)
     if okItems and itemsRemote and itemsRemote:IsA("RemoteEvent") then
         itemsRemote.OnClientEvent:Connect(function(player, data)
-            if type(data) == "table" and data.set and data.set.Lootbox then
-                for id, info in pairs(data.set.Lootbox) do
-                    if type(info) == "table" and info.id and info._am then
-                        trackedItems[info.id] = tonumber(info._am) or 0
+            print("[idk hub] Items: Update received")
+            if type(data) == "table" then
+                local lootbox = data.set and data.set.Lootbox or data.Lootbox or {}
+                for id, info in pairs(lootbox) do
+                    if type(info) == "table" then
+                        local amount = tonumber(info._am) or tonumber(info.amount) or tonumber(info.count) or 0
+                        local itemName = info.id or info.name or tostring(id)
+                        if itemName ~= "" then
+                            trackedItems[itemName] = amount
+                            print("[idk hub] Tracked: " .. itemName .. " = " .. amount)
+                        end
                     end
                 end
             end
