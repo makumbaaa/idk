@@ -653,6 +653,7 @@ do
     AboutBox:AddLabel("Creator:  makumbaaa", true)
     local updateLabel     = AboutBox:AddLabel("Last update: loading...", true)
     local relativeLabel   = AboutBox:AddLabel("Latest update: loading...", true)
+    local lastKnownCommitEpoch = 0  -- for auto-notify
 
     -- Convert a full ISO 8601 timestamp "YYYY-MM-DDTHH:MM:SSZ" to epoch seconds.
     local function isoToEpoch(iso)
@@ -726,15 +727,43 @@ do
         -- Format the absolute timestamp as "YYYY-MM-DD HH:MM"
         local y, mo, d, h, mi = iso:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d)")
         local pretty = string.format("%s-%s-%s %s:%s", y, mo, d, h, mi)
-        updateLabel:SetText("Last update: " .. pretty)
 
-        -- Update the relative label now, and re-run every 60s so it stays fresh
+        -- Auto-notify: compare with previous known epoch (skip first load)
+        local prevEpoch = lastKnownCommitEpoch
+        if commitEpoch > lastKnownCommitEpoch then
+            lastKnownCommitEpoch = commitEpoch
+            if prevEpoch > 0 then
+                Library:Notify("Script update available — Last update: " .. pretty, 6)
+            end
+        end
+        updateLabel:SetText("Last update: " .. pretty)
         relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - commitEpoch))
         while true do
             task.wait(60)
-            pcall(function()
-                relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - commitEpoch))
+            -- Re-fetch API for full auto-notify
+            local ok2, body2 = pcall(function()
+                return game:HttpGet(api)
             end)
+            if ok2 and type(body2) == "string" and body2 ~= "" then
+                local iso2 = body2:match('"date":%s*"(%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ)"')
+                if iso2 then
+                    local newEpoch = isoToEpoch(iso2)
+                    if newEpoch and newEpoch > lastKnownCommitEpoch then
+                        lastKnownCommitEpoch = newEpoch
+                        local y2, mo2, d2, h2, mi2 = iso2:match("(%d%d%d%d)%-(%d%d)%-(%d%d)T(%d%d):(%d%d)")
+                        local pretty2 = string.format("%s-%s-%s %s:%s", y2, mo2, d2, h2, mi2)
+                        updateLabel:SetText("Last update: " .. pretty2)
+                        relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - newEpoch))
+                        Library:Notify("Script update detected — Last update: " .. pretty2, 6)
+                    else
+                        relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - (newEpoch or commitEpoch)))
+                    end
+                end
+            else
+                pcall(function()
+                    relativeLabel:SetText("Latest update: " .. relativeTime(os.time() - commitEpoch))
+                end)
+            end
         end
     end)
 end
@@ -841,8 +870,24 @@ do
 end
 do
     local lb = NotificationsTab:AddRightGroupbox("script updates")
-    lb:AddLabel("Script update notifications: enabled", true)
+    local updateNotifyEnabled = true
+    local updateToggle = lb:AddToggle("ScriptUpdateNotify", {
+        Text    = "Script update notifications",
+        Default = true,
+    })
+    updateToggle:OnChanged(function(value)
+        updateNotifyEnabled = value
+        if value then
+            Library:Notify("Script update notifications: enabled (v6)", 4)
+        else
+            Library:Notify("Script update notifications: disabled", 4)
+        end
+    end)
     lb:AddLabel("Latest: v6", true)
+    -- Notify on load if enabled
+    if updateNotifyEnabled then
+        Library:Notify("Script loaded — updates check enabled (v6)", 4)
+    end
 end
 
 -- ═══════════════════════════════════════
