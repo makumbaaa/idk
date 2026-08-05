@@ -124,7 +124,8 @@ local MACHINES = {
 }
 
 local lastRenew = {}
-local rarityEnabled = {}  -- for webhook multi-rarity selection
+local rarityEnabled = {}  -- deprecated: replaced by multi-dropdown
+local raritySlot3 = {}
 
 local antiKickEnabled   = false
 local antiKickStartTime = nil
@@ -852,28 +853,27 @@ do
         Default  = "None",
     })
     cfg:AddLabel("Slot 3 (items by rarity):", true)
-    local rarityNames = {"Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"}
-    local rarityToggles = {}
-    for _, r in ipairs(rarityNames) do
-        rarityEnabled[r] = false
-        local toggle = cfg:AddToggle("Rarity_" .. r, {
-            Text    = r,
-            Default = false,
-        })
-        rarityToggles[r] = toggle
-        toggle:OnChanged(function(value)
-            rarityEnabled[r] = value
-        end)
-    end
+    local slot3 = cfg:AddDropdown("Slot3Drop", {
+        Values = {"None","Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"},
+        Default = {"None"},
+        Multi = true,
+    })
 
     local function saveSlots()
         webhookSlots[1] = (slot1.Value == "None") and "" or slot1.Value or ""
         webhookSlots[2] = (slot2.Value == "None") and "" or slot2.Value or ""
         webhookIntervalMin = tonumber(intervalInput.Value) or 5
     end
+    slot3:OnChanged(function(value)
+        raritySlot3 = value or {}
+        -- If single value (not multi mode), wrap in table
+        if type(raritySlot3) == "string" then
+            raritySlot3 = {raritySlot3}
+        end
+        saveSlots()
+    end)
     slot1:OnChanged(saveSlots)
     slot2:OnChanged(saveSlots)
-    slot3:OnChanged(saveSlots)
     intervalInput:OnChanged(saveSlots)
     saveSlots()
 end
@@ -1925,11 +1925,15 @@ task.spawn(function()
                         payloadItems[name] = trackedItems[name] or 0
                     end
                 end
-                -- Include all selected rarity toggles
-                for _, r in ipairs({"Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"}) do
-                    if rarityEnabled and rarityEnabled[r] then
-                        payloadItems[r] = trackedItems[r] or 0
+                -- Include all selected multi-dropdown rarities
+                if raritySlot3 and type(raritySlot3) == "table" then
+                    for _, r in ipairs(raritySlot3) do
+                        if r and r ~= "None" and r ~= "" then
+                            payloadItems[r] = trackedItems[r] or 0
+                        end
                     end
+                elseif raritySlot3 and type(raritySlot3) == "string" and raritySlot3 ~= "None" and raritySlot3 ~= "" then
+                    payloadItems[raritySlot3] = trackedItems[raritySlot3] or 0
                 end
                 local payloadStr = HttpService:JSONEncode({
                     content = ("idk hub — Sunflower Gift: " .. tostring(gift) .. " (+" .. tostring(giftDelta) .. ")"),
