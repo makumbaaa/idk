@@ -59,7 +59,7 @@ task.spawn(function()
     local okItems, itemsRemote = pcall(function()
         return Network:WaitForChild("Items: Update", 10)
     end)
-    if okItems and itemsRemote and itemsRemote:IsA("RemoteEvent") then
+    if okItems and itemsRemote then
         itemsRemote.OnClientEvent:Connect(function(player, data)
             print("[idk hub] Items: Update received")
             if type(data) == "table" then
@@ -1851,6 +1851,7 @@ task.spawn(function()
                 lastSend = now
 
                 -- Build payload with Sunflower Gift + 3 selected slots
+                -- Read _am correctly from the event listener (trackedItems)
                 local payloadItems = {}
                 local gift = trackedItems["Sunflower Gift"] or 0
                 local giftDelta = gift - lastGiftAmount
