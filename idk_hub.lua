@@ -124,6 +124,7 @@ local MACHINES = {
 }
 
 local lastRenew = {}
+local rarityEnabled = {}  -- for webhook multi-rarity selection
 
 local antiKickEnabled   = false
 local antiKickStartTime = nil
@@ -851,15 +852,23 @@ do
         Default  = "None",
     })
     cfg:AddLabel("Slot 3 (items by rarity):", true)
-    local slot3 = cfg:AddDropdown("Slot3Drop", {
-        Values   = {"None","Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"},
-        Default  = "None",
-    })
+    local rarityNames = {"Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"}
+    local rarityToggles = {}
+    for _, r in ipairs(rarityNames) do
+        rarityEnabled[r] = false
+        local toggle = cfg:AddToggle("Rarity_" .. r, {
+            Text    = r,
+            Default = false,
+        })
+        rarityToggles[r] = toggle
+        toggle:OnChanged(function(value)
+            rarityEnabled[r] = value
+        end)
+    end
 
     local function saveSlots()
         webhookSlots[1] = (slot1.Value == "None") and "" or slot1.Value or ""
         webhookSlots[2] = (slot2.Value == "None") and "" or slot2.Value or ""
-        webhookSlots[3] = (slot3.Value == "None") and "" or slot3.Value or ""
         webhookIntervalMin = tonumber(intervalInput.Value) or 5
     end
     slot1:OnChanged(saveSlots)
@@ -1914,6 +1923,12 @@ task.spawn(function()
                     local name = webhookSlots[i]
                     if name and name ~= "" then
                         payloadItems[name] = trackedItems[name] or 0
+                    end
+                end
+                -- Include all selected rarity toggles
+                for _, r in ipairs({"Basic","Rare","Epic","Legendary","Mythical","Exotic","Divine","Superior","Celestial","Secret","Exclusive"}) do
+                    if rarityEnabled and rarityEnabled[r] then
+                        payloadItems[r] = trackedItems[r] or 0
                     end
                 end
                 local payloadStr = HttpService:JSONEncode({
