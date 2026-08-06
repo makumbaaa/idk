@@ -1,4 +1,4 @@
--- idk hub (v6) — Obsidian UI Library native
+-- idk hub (v0.5) — Obsidian UI Library native
 -- Preserves all original logic: anti-kick, luck machine renewer, animated sprite-sheet icon.
 
 -- ▶ DIAGNOSTIC VERSION STAMP — if you don't see this exact line printed when
@@ -629,7 +629,7 @@ local Toggles = Library.Toggles
 print("[idk hub] >>>> ck 4: calling Library:CreateWindow...")
 local Window = Library:CreateWindow({
     Title  = "idk hub",
-    Footer = "v6",
+    Footer = "v0.5",
     Center = true,
     AutoShow = true,
 })
@@ -651,7 +651,7 @@ local MiscTab      = Window:AddTab("misc",       "shield")
 do
     local AboutBox = AboutTab:AddLeftGroupbox("about")
     AboutBox:AddLabel("Script:   idk hub", true)
-    AboutBox:AddLabel("Version:  v6", true)
+    AboutBox:AddLabel("Version:  v0.5", true)
     AboutBox:AddLabel("Creator:  makumbaaa", true)
     local updateLabel     = AboutBox:AddLabel("Last update: loading...", true)
     local relativeLabel   = AboutBox:AddLabel("Latest update: loading...", true)
@@ -887,15 +887,15 @@ do
     updateToggle:OnChanged(function(value)
         updateNotifyEnabled = value
         if value then
-            Library:Notify("Script update notifications: enabled (v6)", 4)
+            Library:Notify("Script update notifications: enabled (v0.5)", 4)
         else
             Library:Notify("Script update notifications: disabled", 4)
         end
     end)
-    lb:AddLabel("Latest: v6", true)
+    lb:AddLabel("Latest: 0.5", true)
     -- Notify on load if enabled
     if updateNotifyEnabled then
-        Library:Notify("Script loaded — updates check enabled (v6)", 4)
+        Library:Notify("Script loaded — updates check enabled (v0.5)", 4)
     end
 end
 
